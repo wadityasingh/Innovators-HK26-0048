@@ -146,20 +146,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Sidebar Footer with Institutional Footprint Status */}
+        {/* Sidebar Footer with Department Reporting Status */}
         <div className="p-3 border-t border-slate-200 bg-slate-50/60 text-xs">
           <div className="flex items-center justify-between text-slate-600 mb-1.5 font-medium">
             <span className="flex items-center gap-1.5 text-slate-700">
               <Layers className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Campus Sub-Meters</span>
+              <span>Department Reporting</span>
             </span>
-            <span className="font-mono text-[11px] text-slate-700">6 / 7 Online</span>
+            <span className="font-mono text-[11px] text-slate-700">13 / 14 Logs</span>
           </div>
           <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-emerald-600 h-1.5 rounded-full" style={{ width: '85.7%' }} />
+            <div className="bg-emerald-600 h-1.5 rounded-full" style={{ width: '92.9%' }} />
           </div>
           <div className="mt-2 text-[10px] text-slate-500 leading-tight">
-            Next scheduled audit: <span className="font-medium text-slate-700">Oct 24, 2026</span>
+            Data Completeness: <span className="font-medium text-emerald-800">92.9% MTD</span>
           </div>
         </div>
       </aside>

@@ -15,41 +15,57 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
   buildings,
   monthlyData,
 }) => {
-  const [reportType, setReportType] = useState<'aashe' | 'ghg' | 'executive'>('aashe');
+  const [reportType, setReportType] = useState<'department' | 'monthly' | 'carbon'>('department');
   const [downloaded, setDownloaded] = useState(false);
 
   if (!isOpen) return null;
 
+  // Flatten all departments
+  const allDepartments = buildings.flatMap((b) =>
+    b.departments.map((d) => ({
+      ...d,
+      buildingName: b.name,
+      buildingCode: b.code,
+      buildingCategory: b.category,
+      grossAreaSqFt: b.grossAreaSqFt,
+    }))
+  );
+
   const handleDownloadCSV = () => {
     let csvContent = 'data:text/csv;charset=utf-8,';
 
-    if (reportType === 'aashe') {
-      csvContent += 'AASHE STARS v2.2 Campus Sustainability Report (Simulation)\r\n';
-      csvContent += 'Building Name,Building Code,Category,Gross SqFt,Occupancy,Electricity (kWh),Water (kL),Paper (Reams),Waste (kg),Submeter Status\r\n';
-      buildings.forEach((b) => {
-        csvContent += `"${b.name}","${b.code}","${b.category}",${b.grossAreaSqFt},${b.occupancy},${b.electricityKwh},${b.waterKL},${b.paperReams},${b.wasteKg},"${b.meterStatus}"\r\n`;
+    if (reportType === 'department') {
+      csvContent += 'GreenCampus University — Departmental Resource Consumption Ledger (Oct 2026 MTD)\r\n';
+      csvContent += 'Building Name,Building Code,Category,Department / Location,Location Code,Type,Electricity (kWh),Water (Litres),Water (kL),Paper (Sheets),Waste (kg),Reporting Status\r\n';
+      allDepartments.forEach((d) => {
+        const elec = d.electricityKwh !== null ? d.electricityKwh : 'MISSING';
+        const waterL = d.waterLitres !== null ? d.waterLitres : 'MISSING';
+        const waterKL = d.waterLitres !== null ? (d.waterLitres / 1000).toFixed(2) : 'MISSING';
+        const paper = d.paperSheets !== null ? d.paperSheets : 'MISSING';
+        const waste = d.wasteKg !== null ? d.wasteKg : 'MISSING';
+        csvContent += `"${d.buildingName}","${d.buildingCode}","${d.buildingCategory}","${d.name}","${d.code}","${d.type}",${elec},${waterL},${waterKL},${paper},${waste},"${d.reportingStatus}"\r\n`;
       });
-    } else if (reportType === 'ghg') {
-      csvContent += 'GHG Protocol Campus Carbon Accounting Summary (Scopes 1-3 Simulation)\r\n';
-      csvContent += 'Month,Electricity (kWh),Calculated Scope 2 MT CO2e,Water (kL),Calculated Water CO2e,Paper (Reams),Waste Generated (Tons),Diverted (Tons)\r\n';
+    } else if (reportType === 'monthly') {
+      csvContent += 'GreenCampus University — Monthly Consumption History (May - Oct 2026)\r\n';
+      csvContent += 'Month,Electricity (kWh),Electricity Target (kWh),Water (Litres),Water Target (Litres),Paper (Sheets),Paper Target (Sheets),Waste (kg),Diverted Waste (kg),Reporting Completeness (%)\r\n';
       monthlyData.forEach((m) => {
-        // approx 0.385 kg CO2e per kWh for regional grid
-        const scope2 = ((m.electricityKwh * 0.385) / 1000).toFixed(2);
-        const waterCo2 = ((m.waterKL * 0.298) / 1000).toFixed(2);
-        csvContent += `"${m.month}",${m.electricityKwh},${scope2},${m.waterKL},${waterCo2},${m.paperReams},${m.wasteTons},${m.divertedTons}\r\n`;
+        csvContent += `"${m.month}",${m.electricityKwh},${m.targetElectricityKwh},${m.waterLitres},${m.targetWaterLitres},${m.paperSheets},${m.targetPaperSheets},${m.wasteKg},${m.divertedWasteKg},${m.reportingCompletenessPercent}%\r\n`;
       });
     } else {
-      csvContent += 'Executive Monthly Campus Sustainability Brief\r\n';
-      csvContent += 'Metric,Total YTD Value,Unit,Target Milestone,Status\r\n';
-      csvContent += '"Grid Electricity",3757500,"kWh","4000000 kWh Ceiling","Compliant"\r\n';
-      csvContent += '"Potable Water",85640,"kL","90000 kL Ceiling","Compliant"\r\n';
-      csvContent += '"Waste Landfill Diversion",74.3,"%","90.0% Target","Needs Intervention"\r\n';
+      csvContent += 'GreenCampus University — Estimated Carbon Accounting Summary (Scopes 1-3 Model)\r\n';
+      csvContent += 'Emissions Category,Scope,Estimated Metric,Value,Unit,Emissions Factor Basis\r\n';
+      csvContent += '"Central Heating Natural Gas",Scope 1,Fuel Combustion,42.5,"MT CO2e","Campus steam boiler fuel inventory"\r\n';
+      csvContent += '"Purchased Grid Electricity",Scope 2,Electricity,249.6,"MT CO2e","Regional grid 0.385 kg CO2e / kWh"\r\n';
+      csvContent += '"Solid Waste & Paper Pulp",Scope 3,Materials & Waste,14.2,"MT CO2e","Landfill methane decay & paper supply"\r\n';
     }
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `GreenCampus_${reportType}_Audit_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute(
+      'download',
+      `GreenCampus_${reportType}_report_${new Date().toISOString().split('T')[0]}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -68,8 +84,8 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50/50">
           <div>
-            <h3 className="text-sm font-bold text-slate-900">Export Institutional Sustainability Audit</h3>
-            <p className="text-xs text-slate-500">Generate compliance dossiers for AASHE STARS or ESG reporting</p>
+            <h3 className="text-sm font-bold text-slate-900">Export Campus Resource Report</h3>
+            <p className="text-xs text-slate-500">Download formatted CSV datasets or print preview</p>
           </div>
           <button
             onClick={onClose}
@@ -84,51 +100,51 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           {/* Format selection */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Select Framework / Audit Protocol
+              Select Export Dataset
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => setReportType('aashe')}
+                onClick={() => setReportType('department')}
                 className={`p-3 rounded-lg border text-left transition-all ${
-                  reportType === 'aashe'
+                  reportType === 'department'
                     ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-semibold'
                     : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
                 }`}
               >
-                <div className="font-bold">AASHE STARS v2.2</div>
+                <div className="font-bold">Departmental Ledger</div>
                 <div className="text-[11px] text-slate-500 mt-0.5">
-                  Building-by-building OP-1 Energy & OP-22 Water credit metrics
+                  14 departments & locations with kWh, Litres, Sheets, kg, and missing status
                 </div>
               </button>
 
               <button
                 type="button"
-                onClick={() => setReportType('ghg')}
+                onClick={() => setReportType('monthly')}
                 className={`p-3 rounded-lg border text-left transition-all ${
-                  reportType === 'ghg'
+                  reportType === 'monthly'
                     ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-semibold'
                     : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
                 }`}
               >
-                <div className="font-bold">GHG Protocol (Scopes 1-3)</div>
+                <div className="font-bold">Monthly Trend History</div>
                 <div className="text-[11px] text-slate-500 mt-0.5">
-                  Scope 2 purchased grid power and Scope 3 solid waste carbon model
+                  May - Oct 2026 monthly consumption vs target ceilings
                 </div>
               </button>
 
               <button
                 type="button"
-                onClick={() => setReportType('executive')}
+                onClick={() => setReportType('carbon')}
                 className={`p-3 rounded-lg border text-left transition-all ${
-                  reportType === 'executive'
+                  reportType === 'carbon'
                     ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-semibold'
                     : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
                 }`}
               >
-                <div className="font-bold">Executive Board Brief</div>
+                <div className="font-bold">Estimated Carbon Model</div>
                 <div className="text-[11px] text-slate-500 mt-0.5">
-                  High-level summary of targets, budget impacts & audits for trustees
+                  Scopes 1, 2, and 3 calculations based on utility coefficients
                 </div>
               </button>
             </div>
@@ -137,7 +153,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           {/* Table Preview */}
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 font-semibold text-slate-800 flex items-center justify-between">
-              <span>Audit Export Preview (First 5 Rows)</span>
+              <span>Data Export Preview (First 4 Records)</span>
               <span className="text-[11px] font-mono text-slate-500">Format: CSV / UTF-8</span>
             </div>
             <div className="overflow-x-auto">
@@ -145,22 +161,30 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
                 <thead className="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-mono">
                   <tr>
                     <th className="py-2 px-3">Facility</th>
-                    <th className="py-2 px-3">Gross Area</th>
+                    <th className="py-2 px-3">Department</th>
                     <th className="py-2 px-3">Electricity (kWh)</th>
-                    <th className="py-2 px-3">Water (kL)</th>
+                    <th className="py-2 px-3">Water (Litres)</th>
+                    <th className="py-2 px-3">Paper (Sheets)</th>
                     <th className="py-2 px-3">Waste (kg)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-150">
-                  {buildings.slice(0, 5).map((b) => (
-                    <tr key={b.id} className="hover:bg-slate-50">
-                      <td className="py-2 px-3 font-medium text-slate-800">{b.name}</td>
-                      <td className="py-2 px-3 font-mono">{b.grossAreaSqFt.toLocaleString()} sqft</td>
+                  {allDepartments.slice(0, 4).map((d) => (
+                    <tr key={d.id} className="hover:bg-slate-50">
+                      <td className="py-2 px-3 font-medium text-slate-800">{d.buildingName}</td>
+                      <td className="py-2 px-3 text-slate-600">{d.name}</td>
                       <td className="py-2 px-3 font-mono font-semibold text-emerald-700">
-                        {b.electricityKwh.toLocaleString()}
+                        {d.electricityKwh !== null ? d.electricityKwh.toLocaleString() : 'MISSING'}
                       </td>
-                      <td className="py-2 px-3 font-mono text-sky-700">{b.waterKL.toLocaleString()}</td>
-                      <td className="py-2 px-3 font-mono text-slate-700">{b.wasteKg.toLocaleString()}</td>
+                      <td className="py-2 px-3 font-mono text-sky-700">
+                        {d.waterLitres !== null ? `${(d.waterLitres / 1000).toLocaleString()} kL` : 'MISSING'}
+                      </td>
+                      <td className="py-2 px-3 font-mono text-amber-700">
+                        {d.paperSheets !== null ? d.paperSheets.toLocaleString() : 'MISSING'}
+                      </td>
+                      <td className="py-2 px-3 font-mono text-slate-700">
+                        {d.wasteKg !== null ? d.wasteKg.toLocaleString() : 'MISSING'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -171,7 +195,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           {downloaded && (
             <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-lg flex items-center gap-2 text-emerald-900 font-medium">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span>CSV file successfully downloaded to your browser.</span>
+              <span>CSV file downloaded successfully to your browser.</span>
             </div>
           )}
         </div>
@@ -201,7 +225,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
               className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-emerald-800 hover:bg-emerald-900 rounded-lg shadow-xs"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Download CSV Report</span>
+              <span>Download CSV File</span>
             </button>
           </div>
         </div>

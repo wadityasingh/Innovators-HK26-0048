@@ -7,7 +7,6 @@ import {
   Target,
   Database,
   ArrowDownRight,
-  ArrowUpRight,
   AlertTriangle,
   ChevronRight,
   PlusCircle,
@@ -23,6 +22,7 @@ import {
   SustainabilityTarget,
   AuditRecord,
   TabType,
+  TimeRange,
 } from '../../types';
 import { ResourceConsumptionChart } from '../charts/ResourceConsumptionChart';
 import { DepartmentComparisonChart } from '../charts/DepartmentComparisonChart';
@@ -36,6 +36,7 @@ interface DashboardViewProps {
   alerts: PriorityAlert[];
   targets: SustainabilityTarget[];
   audits: AuditRecord[];
+  selectedTimeRange?: TimeRange;
   onNavigateTab: (tab: TabType) => void;
   onOpenLogMeter: () => void;
   onOpenLogAudit: () => void;
@@ -51,6 +52,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   alerts,
   targets,
   audits,
+  selectedTimeRange = '30d',
   onNavigateTab,
   onOpenLogMeter,
   onOpenLogAudit,
@@ -58,32 +60,177 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onAcknowledgeAlert,
   onResetData,
 }) => {
-  // Aggregate Metrics
-  const totalElectricity = buildings.reduce((sum, b) => sum + b.electricityKwh, 0);
-  const totalWater = buildings.reduce((sum, b) => sum + b.waterKL, 0);
-  const totalPaper = buildings.reduce((sum, b) => sum + b.paperReams, 0);
-  const totalWasteKg = buildings.reduce((sum, b) => sum + b.wasteKg, 0);
-  const activeAlerts = alerts.filter((a) => !a.acknowledged);
+  // Derive aggregate metrics strictly from reported department readings
+  let totalElectricity = 0;
+  let totalWaterLitres = 0;
+  let totalPaperSheets = 0;
+  let totalWasteKg = 0;
+  let totalDepartments = 0;
+  let reportedDepartments = 0;
+  let missingDepartments = 0;
 
-  // Honest Data Completeness Calculation
-  const meteredCount = buildings.filter((b) => b.meterStatus === 'online').length;
-  const intermittentCount = buildings.filter((b) => b.meterStatus === 'intermittent').length;
-  const manualCount = buildings.filter((b) => b.meterStatus === 'manual_estimate').length;
-  const completenessPercent = Math.round(
-    ((meteredCount * 1.0 + intermittentCount * 0.5 + manualCount * 0.2) / buildings.length) * 100
-  );
+  buildings.forEach((b) => {
+    b.departments.forEach((dept) => {
+      totalDepartments++;
+      if (dept.electricityKwh !== null) {
+        totalElectricity += dept.electricityKwh;
+      }
+      if (dept.waterLitres !== null) {
+        totalWaterLitres += dept.waterLitres;
+      }
+      if (dept.paperSheets !== null) {
+        totalPaperSheets += dept.paperSheets;
+      }
+      if (dept.wasteKg !== null) {
+        totalWasteKg += dept.wasteKg;
+      }
+
+      if (dept.reportingStatus === 'reported') {
+        reportedDepartments++;
+      } else {
+        missingDepartments++;
+      }
+    });
+  });
+
+  const completenessPercent =
+    totalDepartments > 0 ? Math.round((reportedDepartments / totalDepartments) * 1000) / 10 : 100;
+
+  // Waste diversion calculation
+  const totalWasteCategorizedKg = wasteCategories.reduce((sum, c) => sum + c.weightKg, 0);
+  const divertedWasteKg = wasteCategories
+    .filter((c) => c.isDiverted)
+    .reduce((sum, c) => sum + c.weightKg, 0);
+  const diversionRate =
+    totalWasteCategorizedKg > 0 ? (divertedWasteKg / totalWasteCategorizedKg) * 100 : 0;
+
+  // Dynamically compute metrics matching selected date filter
+  const getPeriodData = () => {
+    switch (selectedTimeRange) {
+      case '7d': {
+        const factor = 7 / 30;
+        const elec = Math.round(totalElectricity * factor);
+        const water = Math.round(totalWaterLitres * factor);
+        const paper = Math.round(totalPaperSheets * factor);
+        const waste = Math.round(totalWasteKg * factor);
+        const elecTarget = Math.round(675000 * factor);
+        const waterTarget = Math.round(12500000 * factor);
+        const paperTarget = Math.round(1000000 * factor);
+        return {
+          periodLabel: 'Last 7 Days (Oct 8 – 14, 2026)',
+          periodTag: '7D Rolling',
+          elec,
+          elecTarget,
+          elecVariance: ((elecTarget - elec) / elecTarget) * 100,
+          water,
+          waterTarget,
+          waterVariance: ((waterTarget - water) / waterTarget) * 100,
+          paper,
+          paperTarget,
+          paperVariance: ((paperTarget - paper) / paperTarget) * 100,
+          waste,
+          diversion: diversionRate,
+          completeness: completenessPercent,
+          sustainabilityScore: 78.4,
+        };
+      }
+      case '90d': {
+        const q3 = monthlyData.slice(2, 5);
+        const elec = q3.reduce((s, m) => s + m.electricityKwh, 0);
+        const elecTarget = q3.reduce((s, m) => s + m.targetElectricityKwh, 0);
+        const water = q3.reduce((s, m) => s + m.waterLitres, 0);
+        const waterTarget = q3.reduce((s, m) => s + m.targetWaterLitres, 0);
+        const paper = q3.reduce((s, m) => s + m.paperSheets, 0);
+        const paperTarget = q3.reduce((s, m) => s + m.targetPaperSheets, 0);
+        const waste = q3.reduce((s, m) => s + m.wasteKg, 0);
+        const divWaste = q3.reduce((s, m) => s + m.divertedWasteKg, 0);
+        const divRate = waste > 0 ? (divWaste / waste) * 100 : 71.5;
+        return {
+          periodLabel: 'Last 90 Days (Q3 July – Sept 2026)',
+          periodTag: 'Q3 Total',
+          elec,
+          elecTarget,
+          elecVariance: ((elecTarget - elec) / elecTarget) * 100,
+          water,
+          waterTarget,
+          waterVariance: ((waterTarget - water) / waterTarget) * 100,
+          paper,
+          paperTarget,
+          paperVariance: ((paperTarget - paper) / paperTarget) * 100,
+          waste,
+          diversion: divRate,
+          completeness: 100,
+          sustainabilityScore: 79.1,
+        };
+      }
+      case 'ytd': {
+        const elec = monthlyData.reduce((s, m) => s + m.electricityKwh, 0);
+        const elecTarget = monthlyData.reduce((s, m) => s + m.targetElectricityKwh, 0);
+        const water = monthlyData.reduce((s, m) => s + m.waterLitres, 0);
+        const waterTarget = monthlyData.reduce((s, m) => s + m.targetWaterLitres, 0);
+        const paper = monthlyData.reduce((s, m) => s + m.paperSheets, 0);
+        const paperTarget = monthlyData.reduce((s, m) => s + m.targetPaperSheets, 0);
+        const waste = monthlyData.reduce((s, m) => s + m.wasteKg, 0);
+        const divWaste = monthlyData.reduce((s, m) => s + m.divertedWasteKg, 0);
+        const divRate = waste > 0 ? (divWaste / waste) * 100 : 71.5;
+        return {
+          periodLabel: 'Year to Date (May – Oct 2026)',
+          periodTag: 'YTD Total',
+          elec,
+          elecTarget,
+          elecVariance: ((elecTarget - elec) / elecTarget) * 100,
+          water,
+          waterTarget,
+          waterVariance: ((waterTarget - water) / waterTarget) * 100,
+          paper,
+          paperTarget,
+          paperVariance: ((paperTarget - paper) / paperTarget) * 100,
+          waste,
+          diversion: divRate,
+          completeness: 98.8,
+          sustainabilityScore: 78.8,
+        };
+      }
+      case '30d':
+      default: {
+        const elecTarget = 675000;
+        const waterTarget = 12500000;
+        const paperTarget = 1000000;
+        return {
+          periodLabel: 'Last 30 Days (Oct 2026 MTD)',
+          periodTag: 'MTD',
+          elec: totalElectricity,
+          elecTarget,
+          elecVariance: ((elecTarget - totalElectricity) / elecTarget) * 100,
+          water: totalWaterLitres,
+          waterTarget,
+          waterVariance: ((waterTarget - totalWaterLitres) / waterTarget) * 100,
+          paper: totalPaperSheets,
+          paperTarget,
+          paperVariance: ((paperTarget - totalPaperSheets) / paperTarget) * 100,
+          waste: totalWasteKg,
+          diversion: diversionRate,
+          completeness: completenessPercent,
+          sustainabilityScore: 78.4,
+        };
+      }
+    }
+  };
+
+  const periodData = getPeriodData();
+  const activeAlerts = alerts.filter((a) => !a.acknowledged);
 
   return (
     <div className="space-y-6">
-      {/* Demo simulation transparent banner */}
+      {/* Synthetic Demo Banner */}
       <DemoNotice onResetData={onResetData} />
 
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-4 shadow-2xs">
         <div>
-          <div className="text-xs text-slate-500 font-medium">Campus Operational State</div>
+          <div className="text-xs text-slate-500 font-medium">Campus Operational Overview</div>
           <div className="text-sm font-bold text-slate-900 mt-0.5">
-            Fall Academic Term · Oct 2026 Audit Cycle
+            GreenCampus University · {periodData.periodLabel}
           </div>
         </div>
 
@@ -93,21 +240,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-800 transition-colors shadow-2xs"
           >
             <PlusCircle className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Log Meter</span>
+            <span>Log Department Reading</span>
           </button>
           <button
             onClick={onOpenLogAudit}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-800 transition-colors shadow-2xs"
           >
             <PlusCircle className="w-3.5 h-3.5 text-emerald-700" />
-            <span>New Audit</span>
+            <span>Record Walkthrough Audit</span>
           </button>
           <button
             onClick={onOpenExportReport}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg text-xs font-semibold transition-colors shadow-xs"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Export ESG Report</span>
+            <span>Export Report Data</span>
           </button>
         </div>
       </div>
@@ -117,17 +264,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 1: Green Score */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col justify-between">
           <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold text-slate-600">Campus Green Score</span>
+            <span className="text-xs font-semibold text-slate-600">Sustainability Index</span>
             <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-800">
               <Gauge className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-emerald-900 tabular-nums">78.4</span>
+            <span className="text-2xl font-bold font-mono text-emerald-900 tabular-nums">
+              {periodData.sustainabilityScore}
+            </span>
             <span className="text-xs text-slate-500 font-mono">/ 100</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span>AASHE STARS Gold tier</span>
+            <span>Internal Assessment</span>
             <span className="text-emerald-700 font-medium">+2.1 pts vs baseline</span>
           </div>
         </div>
@@ -142,80 +291,82 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">
-              {(totalElectricity / 1000).toFixed(1)}k
+              {(periodData.elec / 1000).toFixed(1)}k
             </span>
-            <span className="text-xs text-slate-500">kWh (MTD)</span>
+            <span className="text-xs text-slate-500">kWh ({periodData.periodTag})</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-1 text-emerald-700 font-medium">
               <ArrowDownRight className="w-3.5 h-3.5" />
-              <span>3.1% under ceiling</span>
+              <span>{periodData.elecVariance.toFixed(1)}% under ceiling</span>
             </span>
-            <span className="text-slate-500 font-mono">Peak: 485 kW</span>
+            <span className="text-slate-500 font-mono">13 / 14 depts</span>
           </div>
         </div>
 
         {/* Card 3: Water Usage */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col justify-between">
           <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold text-slate-600">Potable Water Flow</span>
+            <span className="text-xs font-semibold text-slate-600">Water Consumption</span>
             <div className="p-1.5 rounded-lg bg-sky-50 text-sky-800">
               <Droplets className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">
-              {totalWater.toLocaleString()}
+              {(periodData.water / 1000).toLocaleString()}
             </span>
-            <span className="text-xs text-slate-500">kL (MTD)</span>
+            <span className="text-xs text-slate-500">kL ({(periodData.water / 1000000).toFixed(2)}M L)</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-1 text-emerald-700 font-medium">
               <ArrowDownRight className="w-3.5 h-3.5" />
-              <span>3.9% under ceiling</span>
+              <span>{periodData.waterVariance.toFixed(1)}% under ceiling</span>
             </span>
-            <span className="text-slate-500 font-mono">Recycled: 14%</span>
+            <span className="text-slate-500 font-mono">13 / 14 depts</span>
           </div>
         </div>
 
         {/* Card 4: Paper Usage */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col justify-between">
           <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold text-slate-600">Paper Consumption</span>
+            <span className="text-xs font-semibold text-slate-600">Paper Usage</span>
             <div className="p-1.5 rounded-lg bg-amber-50 text-amber-800">
               <FileText className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">
-              {totalPaper.toLocaleString()}
+              {periodData.paper.toLocaleString()}
             </span>
-            <span className="text-xs text-slate-500">Reams (MTD)</span>
+            <span className="text-xs text-slate-500">sheets ({periodData.periodTag})</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-1 text-emerald-700 font-medium">
               <ArrowDownRight className="w-3.5 h-3.5" />
-              <span>9.6% reduction</span>
+              <span>{periodData.paperVariance.toFixed(1)}% under allocation</span>
             </span>
-            <span className="text-slate-500 font-mono">~22.8 trees saved</span>
+            <span className="text-slate-500 font-mono">13 / 14 depts</span>
           </div>
         </div>
 
         {/* Card 5: Waste Generated & Diversion */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col justify-between">
           <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold text-slate-600">Waste & Landfill Diversion</span>
+            <span className="text-xs font-semibold text-slate-600">Solid Waste Diversion</span>
             <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-800">
               <Trash2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">74.3%</span>
+            <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">
+              {periodData.diversion.toFixed(1)}%
+            </span>
             <span className="text-xs text-slate-500">Diverted</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-slate-600">Total: {(totalWasteKg / 1000).toFixed(1)}t</span>
-            <span className="text-amber-700 font-medium">Target: 90% by 2027</span>
+            <span className="text-slate-600">Total: {periodData.waste.toLocaleString()} kg</span>
+            <span className="text-amber-800 font-medium">Target: 85% by 2027</span>
           </div>
         </div>
 
@@ -229,31 +380,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">3 / 4</span>
-            <span className="text-xs text-slate-500">Milestones On Track</span>
+            <span className="text-xs text-slate-500">Targets On Track</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-amber-700 font-medium">1 At Risk (Waste 90%)</span>
+            <span className="text-amber-800 font-medium">1 Needs Attention (Waste)</span>
             <button
               onClick={() => onNavigateTab('targets')}
               className="text-emerald-700 hover:text-emerald-900 font-medium"
             >
-              Roadmap →
+              Targets →
             </button>
           </div>
         </div>
 
-        {/* Card 7: Data Completeness & Sensor Health (Honest Disclosure) */}
+        {/* Card 7: Data Completeness (Separated Honest Tracker) */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col justify-between sm:col-span-2">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                <span>Data Completeness & Sub-Meter Coverage</span>
-                <span title="Discloses real sensor availability vs estimated logs">
+                <span>Data Completeness & Department Reporting</span>
+                <span title="Discloses reported vs missing departmental logs">
                   <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
                 </span>
               </span>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Honest reporting: 5 digital IoT meters active, 1 intermittent, 1 manual log
+                Honest reporting: {reportedDepartments} of {totalDepartments} locations logged ({missingDepartments} unsubmitted)
               </p>
             </div>
             <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-800">
@@ -263,13 +414,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="mt-3">
             <div className="flex items-center justify-between text-xs font-mono font-semibold mb-1">
-              <span className="text-slate-700">Campus Sensor Confidence</span>
-              <span className="text-emerald-800">{completenessPercent}% Complete</span>
+              <span className="text-slate-700">Campus Reporting Completeness</span>
+              <span className="text-emerald-800">{periodData.completeness}% Logged</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
-              <div className="bg-emerald-600 h-2" style={{ width: '71.4%' }} title="Online IoT meters (71.4%)" />
-              <div className="bg-amber-400 h-2" style={{ width: '14.3%' }} title="Intermittent submeters (14.3%)" />
-              <div className="bg-slate-300 h-2" style={{ width: '14.3%' }} title="Manual log estimations (14.3%)" />
+              <div
+                className="bg-emerald-600 h-2"
+                style={{ width: `${periodData.completeness}%` }}
+                title={`${reportedDepartments} departments reported`}
+              />
+              <div
+                className="bg-amber-400 h-2"
+                style={{ width: `${100 - periodData.completeness}%` }}
+                title={`${missingDepartments} department missing`}
+              />
             </div>
           </div>
 
@@ -277,39 +435,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                Online (5)
+                Reported ({reportedDepartments})
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-amber-400" />
-                Intermittent (1)
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-slate-300" />
-                Manual (1)
+                Missing ({missingDepartments})
               </span>
             </div>
-            <button
-              onClick={() => onNavigateTab('resources')}
-              className="text-emerald-700 hover:text-emerald-900 font-medium"
-            >
-              Audit Sensors →
-            </button>
+            <span className="text-slate-500 italic">
+              Missing logs are excluded from totals rather than assumed zero
+            </span>
           </div>
         </div>
       </div>
 
       {/* Main Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Resource Consumption Chart */}
         <ResourceConsumptionChart data={monthlyData} />
-
-        {/* Building & Department Comparative Footprint */}
         <DepartmentComparisonChart buildings={buildings} />
       </div>
 
       {/* Lower Row: Waste Composition & Priority Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Waste Breakdown (takes 2 cols on lg) */}
         <div className="lg:col-span-2">
           <WasteCompositionChart categories={wasteCategories} />
         </div>
@@ -320,7 +467,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <h3 className="text-sm font-bold text-slate-900">Priority Alerts</h3>
+                <h3 className="text-sm font-bold text-slate-900">Operational Alerts</h3>
               </div>
               <button
                 onClick={() => onNavigateTab('alerts')}
@@ -349,7 +496,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </span>
                   </div>
                   <div className="mt-1 text-[11px] text-slate-600">
-                    {alert.building} · Observed: <span className="font-mono">{alert.observedValue}</span>
+                    {alert.building} {alert.department ? `· ${alert.department}` : ''}
+                  </div>
+                  <div className="mt-1 text-[10px] text-slate-500 font-mono">
+                    Observed: {alert.observedReading}
                   </div>
                   {!alert.acknowledged && (
                     <div className="mt-2 flex items-center justify-end">
@@ -367,7 +517,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>{activeAlerts.length} unacknowledged anomalies</span>
+            <span>{activeAlerts.length} unacknowledged items</span>
             <button
               onClick={() => onNavigateTab('alerts')}
               className="text-emerald-700 font-medium hover:underline"
@@ -378,12 +528,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Recent Field Audits & Activity Ledger */}
+      {/* Recent Internal Audits & Inspections */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-2xs">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="text-sm font-bold text-slate-900">Recent Sustainability Audits & Inspections</h3>
-            <p className="text-xs text-slate-500">Formal energy walks, waste sorts, and sensor calibrations</p>
+            <h3 className="text-sm font-bold text-slate-900">Recent Campus Walkthrough Audits</h3>
+            <p className="text-xs text-slate-500">Internal observation walks and department utility log reviews</p>
           </div>
           <button
             onClick={() => onNavigateTab('audits')}
@@ -395,20 +545,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[640px]">
             <thead className="bg-slate-50 border-y border-slate-200 text-slate-600 font-mono text-[11px]">
               <tr>
                 <th className="py-2.5 px-3">Audit Reference</th>
-                <th className="py-2.5 px-3">Inspection Title</th>
+                <th className="py-2.5 px-3">Inspection Subject</th>
                 <th className="py-2.5 px-3">Facility</th>
-                <th className="py-2.5 px-3">Auditor</th>
+                <th className="py-2.5 px-3">Reviewer</th>
                 <th className="py-2.5 px-3">Date</th>
-                <th className="py-2.5 px-3">Score</th>
+                <th className="py-2.5 px-3">Rating</th>
                 <th className="py-2.5 px-3">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-150">
-              {audits.slice(0, 4).map((audit) => (
+              {audits.slice(0, 3).map((audit) => (
                 <tr key={audit.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="py-2.5 px-3 font-mono font-medium text-slate-700">
                     {audit.auditNumber}
@@ -422,15 +572,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </td>
                   <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">{audit.auditDate}</td>
                   <td className="py-2.5 px-3 font-mono font-bold text-slate-900 tabular-nums">
-                    {audit.complianceScore.toFixed(1)}%
+                    {audit.internalRating}%
                   </td>
                   <td className="py-2.5 px-3">
                     <span
                       className={`text-[11px] font-semibold ${
-                        audit.status === 'Certified'
+                        audit.status === 'Reviewed & Filed'
                           ? 'text-emerald-700'
-                          : audit.status === 'Findings Open'
-                          ? 'text-rose-700'
                           : 'text-amber-700'
                       }`}
                     >

@@ -10,13 +10,13 @@ interface AddTargetModalProps {
 
 export const AddTargetModal: React.FC<AddTargetModalProps> = ({ isOpen, onClose, onAddTarget }) => {
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<SustainabilityTarget['category']>('Energy');
+  const [category, setCategory] = useState<SustainabilityTarget['category']>('Electricity');
   const [currentValue, setCurrentValue] = useState('');
   const [targetValue, setTargetValue] = useState('');
-  const [unit, setUnit] = useState('% reduction vs 2020 baseline');
+  const [unit, setUnit] = useState('% reduction vs 2022 baseline');
   const [targetYear, setTargetYear] = useState('2028');
-  const [departmentLead, setDepartmentLead] = useState('Facilities & Engineering');
-  const [initiativeSummary, setInitiativeSummary] = useState('');
+  const [responsibleLead, setResponsibleLead] = useState('Campus Facilities & Operations');
+  const [notes, setNotes] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
   if (!isOpen) return null;
@@ -32,12 +32,11 @@ export const AddTargetModal: React.FC<AddTargetModalProps> = ({ isOpen, onClose,
       currentValue: parseFloat(currentValue) || 10,
       targetValue: parseFloat(targetValue) || 25,
       unit,
-      baselineYear: 2020,
+      baselineYear: 2022,
       targetYear: parseInt(targetYear, 10) || 2028,
-      deadlineDate: `Dec ${targetYear}`,
       status: 'on_track',
-      departmentLead,
-      initiativeSummary: initiativeSummary || 'Campus-wide efficiency capital improvement plan.',
+      responsibleLead,
+      notes: notes || 'Campus-wide efficiency capital improvement plan.',
     };
 
     onAddTarget(newTarget);
@@ -98,11 +97,10 @@ export const AddTargetModal: React.FC<AddTargetModalProps> = ({ isOpen, onClose,
                   }
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:border-emerald-600"
                 >
-                  <option value="Energy">Energy</option>
+                  <option value="Electricity">Electricity</option>
                   <option value="Water">Water</option>
-                  <option value="Waste">Waste</option>
                   <option value="Paper">Paper</option>
-                  <option value="Emissions">Emissions</option>
+                  <option value="Waste">Waste</option>
                 </select>
               </div>
 
@@ -171,26 +169,26 @@ export const AddTargetModal: React.FC<AddTargetModalProps> = ({ isOpen, onClose,
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Lead Department / Office
+                Responsible Lead / Department
               </label>
               <input
                 type="text"
                 required
-                value={departmentLead}
-                onChange={(e) => setDepartmentLead(e.target.value)}
-                placeholder="e.g. Dining Services, Central Plant, Housing"
+                value={responsibleLead}
+                onChange={(e) => setResponsibleLead(e.target.value)}
+                placeholder="e.g. Facilities Energy Coordinator, Student Green Council"
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:border-emerald-600"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Action Plan Summary
+                Target Action Notes
               </label>
               <textarea
                 rows={2}
-                value={initiativeSummary}
-                onChange={(e) => setInitiativeSummary(e.target.value)}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
                 placeholder="Key equipment retrofits, behavior campaigns, or procurement policies..."
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:border-emerald-600"
               />

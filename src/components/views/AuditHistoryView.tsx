@@ -44,10 +44,10 @@ export const AuditHistoryView: React.FC<AuditHistoryViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 rounded-xl p-4 shadow-2xs">
         <div>
           <h2 className="text-sm font-bold text-slate-900">
-            Campus Physical & Telemetry Audit Logbook
+            Campus Audit & Inspection Logbook
           </h2>
           <p className="text-xs text-slate-500">
-            Historical repository of certified ASHRAE Level I/II energy walks, fume hood certifications, and waste sorts
+            Internal repository of walkthrough inspections, department utility log reviews, and waste sort observations
           </p>
         </div>
 
@@ -56,7 +56,7 @@ export const AuditHistoryView: React.FC<AuditHistoryViewProps> = ({
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg text-xs font-semibold shadow-xs self-start sm:self-auto"
         >
           <PlusCircle className="w-4 h-4" />
-          <span>Record New Audit</span>
+          <span>Record Walkthrough Audit</span>
         </button>
       </div>
 
@@ -69,7 +69,7 @@ export const AuditHistoryView: React.FC<AuditHistoryViewProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search audit ID, title, building..."
+              placeholder="Search audit ID, title, facility..."
               className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg w-56 focus:outline-hidden focus:border-emerald-600"
             />
           </div>
@@ -81,10 +81,9 @@ export const AuditHistoryView: React.FC<AuditHistoryViewProps> = ({
             className="px-2.5 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-800 focus:outline-hidden"
           >
             <option value="all">All Audits ({audits.length})</option>
-            <option value="Certified">Certified</option>
-            <option value="Findings Open">Findings Open</option>
+            <option value="Reviewed & Filed">Reviewed & Filed</option>
             <option value="Pending Review">Pending Review</option>
-            <option value="Draft">Draft</option>
+            <option value="Internal Draft">Internal Draft</option>
           </select>
         </div>
 
@@ -96,17 +95,17 @@ export const AuditHistoryView: React.FC<AuditHistoryViewProps> = ({
       {/* Audits Table */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-3">
         <div className="overflow-x-auto border border-slate-150 rounded-lg">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[700px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-mono text-[11px]">
               <tr>
                 <th className="py-2.5 px-3">Audit Reference</th>
                 <th className="py-2.5 px-3">Inspection Subject</th>
                 <th className="py-2.5 px-3">Facility</th>
                 <th className="py-2.5 px-3">Methodology</th>
-                <th className="py-2.5 px-3">Auditor</th>
+                <th className="py-2.5 px-3">Reviewer</th>
                 <th className="py-2.5 px-3">Date</th>
-                <th className="py-2.5 px-3">Score</th>
-                <th className="py-2.5 px-3">Findings</th>
+                <th className="py-2.5 px-3">Internal Rating</th>
+                <th className="py-2.5 px-3">Unresolved Items</th>
                 <th className="py-2.5 px-3">Status</th>
               </tr>
             </thead>
@@ -125,31 +124,29 @@ export const AuditHistoryView: React.FC<AuditHistoryViewProps> = ({
                     <div className="text-[11px] text-slate-500 truncate max-w-xs">{a.scope}</div>
                   </td>
                   <td className="py-3 px-3 text-slate-700">{a.building}</td>
-                  <td className="py-3 px-3 text-slate-500">{a.verificationMethod}</td>
+                  <td className="py-3 px-3 text-slate-500">{a.inspectionType}</td>
                   <td className="py-3 px-3 text-slate-600 truncate max-w-[140px]">
                     {a.auditorName}
                   </td>
                   <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{a.auditDate}</td>
                   <td className="py-3 px-3 font-mono font-bold text-slate-900 tabular-nums">
-                    {a.complianceScore.toFixed(1)}%
+                    {a.internalRating}%
                   </td>
                   <td className="py-3 px-3 font-mono">
-                    {a.findingsCount > 0 ? (
-                      <span className="text-rose-700 font-semibold">
-                        {a.findingsCount} open
+                    {a.unresolvedItemsCount > 0 ? (
+                      <span className="text-amber-800 font-semibold">
+                        {a.unresolvedItemsCount} open
                       </span>
                     ) : (
-                      <span className="text-emerald-700 font-medium">None</span>
+                      <span className="text-emerald-700 font-medium">Clear</span>
                     )}
                   </td>
                   <td className="py-3 px-3">
                     <span
                       className={`text-[11px] font-semibold ${
-                        a.status === 'Certified'
+                        a.status === 'Reviewed & Filed'
                           ? 'text-emerald-700'
-                          : a.status === 'Findings Open'
-                          ? 'text-rose-700'
-                          : 'text-amber-700'
+                          : 'text-amber-800'
                       }`}
                     >
                       {a.status}
@@ -189,9 +186,9 @@ export const AuditHistoryView: React.FC<AuditHistoryViewProps> = ({
                 </div>
 
                 <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-                  <div className="text-[11px] text-slate-500">Compliance Score</div>
+                  <div className="text-[11px] text-slate-500">Internal Rating</div>
                   <div className="font-mono font-bold text-sm text-slate-900 mt-0.5">
-                    {selectedAudit.complianceScore.toFixed(1)}%
+                    {selectedAudit.internalRating}%
                   </div>
                 </div>
               </div>
@@ -204,14 +201,14 @@ export const AuditHistoryView: React.FC<AuditHistoryViewProps> = ({
               </div>
 
               <div>
-                <div className="font-semibold text-slate-700 mb-1">Lead Auditor Findings</div>
+                <div className="font-semibold text-slate-700 mb-1">Lead Reviewer Findings</div>
                 <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 leading-relaxed">
                   {selectedAudit.notes}
                 </div>
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-                <span>Auditor: <strong>{selectedAudit.auditorName}</strong></span>
+                <span>Reviewer: <strong>{selectedAudit.auditorName}</strong></span>
                 <span>Date: {selectedAudit.auditDate}</span>
               </div>
             </div>

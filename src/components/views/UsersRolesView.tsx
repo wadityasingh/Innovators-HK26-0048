@@ -23,8 +23,8 @@ export const UsersRolesView: React.FC<UsersRolesViewProps> = ({
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<UserRole>('Department Auditor');
-  const [inviteBuilding, setInviteBuilding] = useState('Founders Administration');
+  const [inviteRole, setInviteRole] = useState<UserRole>('Department Energy Liaison');
+  const [inviteBuilding, setInviteBuilding] = useState('Founders Administration Hall');
   const [inviteSuccess, setInviteSuccess] = useState(false);
 
   const rolePermissions: {
@@ -33,41 +33,41 @@ export const UsersRolesView: React.FC<UsersRolesViewProps> = ({
     permissions: string[];
   }[] = [
     {
-      role: 'Campus Sustainability Director',
-      description: 'Institutional authority over carbon reporting, STARS submission, and capital budget sign-off.',
+      role: 'Campus Sustainability Manager',
+      description: 'Institutional leadership over campus targets, baseline configurations, and resource policy sign-off.',
       permissions: [
-        'Approve AI conservation measures',
-        'Sign off official AASHE STARS audits',
-        'Configure utility tariffs & baselines',
-        'Manage campus access & user roles',
+        'Review and approve conservation proposals',
+        'Configure campus tariffs and area baselines',
+        'Export verified resource datasets',
+        'Manage campus access and user roles',
       ],
     },
     {
-      role: 'Facilities Energy Engineer',
-      description: 'Operations authority over BMS setpoints, submeter hardware, and physical chiller walk-throughs.',
+      role: 'Facilities Energy Coordinator',
+      description: 'Operational coordinator for mechanical plant systems, utility submeters, and inspection walk-throughs.',
       permissions: [
-        'Log physical sub-meter readings',
-        'Acknowledge & resolve mechanical alerts',
-        'Update facilities engineering checklists',
-        'Inspect high-demand lab equipment',
+        'Record manual department utility readings',
+        'Acknowledge & investigate consumption exceptions',
+        'File walkthrough inspection checklists',
+        'Review equipment schedules & temperature logs',
       ],
     },
     {
-      role: 'Student Green Council Lead',
-      description: 'Student oversight over dining waste streams, residence hall audits, and peer behavioral campaigns.',
+      role: 'Student Green Council Representative',
+      description: 'Student oversight over dining waste streams, residence hall recycling, and peer engagement initiatives.',
       permissions: [
-        'Log waste sort & contamination audits',
-        'View campus resource trends',
-        'Propose digital syllabus campaigns',
+        'Record solid waste scale weigh-in manifests',
+        'Inspect dining compost and sorting bins',
+        'Track paperless transition targets',
       ],
     },
     {
-      role: 'Department Auditor',
-      description: 'Independent verification of institutional energy bills, vendor manifests, and submeter accuracy.',
+      role: 'Department Energy Liaison',
+      description: 'Departmental representative coordinating local utility sheets, equipment shutoff, and internal audit reviews.',
       permissions: [
-        'Perform scheduled compliance walks',
-        'Record audit findings & non-compliance',
-        'Export CSV data & ESG audit dossiers',
+        'Submit monthly department utility logs',
+        'Verify departmental paper consumption',
+        'Participate in building walk-throughs',
       ],
     },
   ];
@@ -81,9 +81,9 @@ export const UsersRolesView: React.FC<UsersRolesViewProps> = ({
       name: inviteName,
       email: inviteEmail,
       role: inviteRole,
-      assignedBuildings: [inviteBuilding],
+      assignedScope: inviteBuilding,
       lastActive: 'Invited just now',
-      status: 'active',
+      status: 'Active',
     };
 
     onAddUser(newUser);
@@ -173,13 +173,13 @@ export const UsersRolesView: React.FC<UsersRolesViewProps> = ({
         </h3>
 
         <div className="overflow-x-auto border border-slate-150 rounded-lg">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[640px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-mono text-[11px]">
               <tr>
                 <th className="py-2.5 px-3">Name</th>
                 <th className="py-2.5 px-3">Role</th>
                 <th className="py-2.5 px-3">Email</th>
-                <th className="py-2.5 px-3">Assigned Facilities</th>
+                <th className="py-2.5 px-3">Assigned Scope</th>
                 <th className="py-2.5 px-3">Last Active</th>
                 <th className="py-2.5 px-3">Status</th>
               </tr>
@@ -193,7 +193,7 @@ export const UsersRolesView: React.FC<UsersRolesViewProps> = ({
                   </td>
                   <td className="py-3 px-3 font-mono text-slate-500">{u.email}</td>
                   <td className="py-3 px-3 text-slate-600">
-                    {u.assignedBuildings.join(', ')}
+                    {u.assignedScope}
                   </td>
                   <td className="py-3 px-3 text-slate-500 text-[11px]">{u.lastActive}</td>
                   <td className="py-3 px-3">
@@ -292,10 +292,10 @@ export const UsersRolesView: React.FC<UsersRolesViewProps> = ({
                     onChange={(e) => setInviteRole(e.target.value as UserRole)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
                   >
-                    <option value="Campus Sustainability Director">Campus Sustainability Director</option>
-                    <option value="Facilities Energy Engineer">Facilities Energy Engineer</option>
-                    <option value="Student Green Council Lead">Student Green Council Lead</option>
-                    <option value="Department Auditor">Department Auditor</option>
+                    <option value="Campus Sustainability Manager">Campus Sustainability Manager</option>
+                    <option value="Facilities Energy Coordinator">Facilities Energy Coordinator</option>
+                    <option value="Student Green Council Representative">Student Green Council Representative</option>
+                    <option value="Department Energy Liaison">Department Energy Liaison</option>
                   </select>
                 </div>
 

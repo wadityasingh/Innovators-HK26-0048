@@ -11,6 +11,7 @@ import {
   SustainabilityTarget,
   AuditRecord,
   CampusUser,
+  ResourceType,
 } from './types';
 import {
   CURRENT_USER,
@@ -52,7 +53,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('30d');
-  const [selectedCampus, setSelectedCampus] = useState('Main Metro Campus');
 
   // User State
   const [currentUser, setCurrentUser] = useState<UserProfile>(CURRENT_USER);
@@ -92,7 +92,8 @@ export default function App() {
               ...a,
               acknowledged: true,
               resolved: true,
-              rootCause: notes ? `${a.rootCause || ''} · [Action Note]: ${notes}` : a.rootCause,
+              investigationStatus: 'Resolved',
+              reviewNotes: notes ? `${a.reviewNotes || ''} · [Action Note]: ${notes}` : a.reviewNotes,
             }
           : a
       )
@@ -107,17 +108,18 @@ export default function App() {
   // Update recommendation status
   const handleUpdateRecommendationStatus = (
     id: string,
-    newStatus: Recommendation['status']
+    newStatus: Recommendation['reviewStatus']
   ) => {
     setRecommendations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
+      prev.map((r) => (r.id === id ? { ...r, reviewStatus: newStatus } : r))
     );
   };
 
-  // Save manual submeter reading
+  // Save manual department reading
   const handleSaveMeterReading = (reading: {
     buildingId: string;
-    resourceType: 'electricity' | 'water' | 'paper';
+    departmentId: string;
+    resourceType: ResourceType;
     value: number;
     unit: string;
     readingDate: string;
@@ -126,25 +128,31 @@ export default function App() {
     setBuildings((prev) =>
       prev.map((b) => {
         if (b.id === reading.buildingId) {
-          if (reading.resourceType === 'electricity') {
-            return {
-              ...b,
-              electricityKwh: reading.value,
-              lastReading: `Manual log: ${reading.readingDate}`,
-            };
-          } else if (reading.resourceType === 'water') {
-            return {
-              ...b,
-              waterKL: reading.value,
-              lastReading: `Manual log: ${reading.readingDate}`,
-            };
-          } else {
-            return {
-              ...b,
-              paperReams: reading.value,
-              lastReading: `Manual log: ${reading.readingDate}`,
-            };
-          }
+          const updatedDepts = b.departments.map((dept) => {
+            if (dept.id === reading.departmentId) {
+              const updatedDept = {
+                ...dept,
+                reportingStatus: 'reported' as const,
+                lastLogDate: reading.readingDate,
+                notes: reading.notes || dept.notes,
+              };
+              if (reading.resourceType === 'electricity') {
+                updatedDept.electricityKwh = reading.value;
+              } else if (reading.resourceType === 'water') {
+                updatedDept.waterLitres = reading.value;
+              } else if (reading.resourceType === 'paper') {
+                updatedDept.paperSheets = reading.value;
+              } else if (reading.resourceType === 'waste') {
+                updatedDept.wasteKg = reading.value;
+              }
+              return updatedDept;
+            }
+            return dept;
+          });
+          return {
+            ...b,
+            departments: updatedDepts,
+          };
         }
         return b;
       })
@@ -179,23 +187,9 @@ export default function App() {
     setCurrentUser(CURRENT_USER);
   };
 
-  // Simulate telemetry jitter (subtle ±2% to demonstrate live reactive data)
-  const handleRandomizeTelemetry = () => {
-    setBuildings((prev) =>
-      prev.map((b) => {
-        const factor = 0.98 + Math.random() * 0.04;
-        return {
-          ...b,
-          electricityKwh: Math.round(b.electricityKwh * factor),
-          waterKL: Math.round(b.waterKL * factor),
-        };
-      })
-    );
-  };
-
   const unreadAlertsCount = alerts.filter((a) => !a.acknowledged).length;
   const activeRecommendationsCount = recommendations.filter(
-    (r) => r.status === 'review'
+    (r) => r.reviewStatus === 'Under Review' || r.reviewStatus === 'Draft Proposal'
   ).length;
 
   return (
@@ -221,8 +215,6 @@ export default function App() {
           onSelectUser={setCurrentUser}
           selectedTimeRange={selectedTimeRange}
           onChangeTimeRange={setSelectedTimeRange}
-          selectedCampus={selectedCampus}
-          onChangeCampus={setSelectedCampus}
           alerts={alerts}
           onAcknowledgeAlert={handleAcknowledgeAlert}
           onNavigateToTab={setActiveTab}
@@ -239,6 +231,7 @@ export default function App() {
                 alerts={alerts}
                 targets={targets}
                 audits={audits}
+                selectedTimeRange={selectedTimeRange}
                 onNavigateTab={setActiveTab}
                 onOpenLogMeter={() => setIsLogMeterOpen(true)}
                 onOpenLogAudit={() => setIsLogAuditOpen(true)}
@@ -320,7 +313,6 @@ export default function App() {
             {activeTab === 'settings' && (
               <SettingsView
                 onResetData={handleResetData}
-                onRandomizeTelemetry={handleRandomizeTelemetry}
               />
             )}
           </div>

@@ -101,21 +101,21 @@ export const TargetsView: React.FC<TargetsViewProps> = ({
                     className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
                       tar.status === 'on_track'
                         ? 'bg-emerald-100 text-emerald-800'
-                        : tar.status === 'at_risk'
+                        : tar.status === 'needs_attention'
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-rose-100 text-rose-800'
                     }`}
                   >
                     {tar.status === 'on_track'
                       ? 'On Track'
-                      : tar.status === 'at_risk'
-                      ? 'At Risk'
+                      : tar.status === 'needs_attention'
+                      ? 'Needs Attention'
                       : 'Behind'}
                   </span>
                 </div>
 
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  {tar.initiativeSummary}
+                  {tar.notes}
                 </p>
               </div>
 
@@ -138,7 +138,7 @@ export const TargetsView: React.FC<TargetsViewProps> = ({
                     className={`h-2.5 rounded-full transition-all duration-300 ${
                       tar.status === 'on_track'
                         ? 'bg-emerald-600'
-                        : tar.status === 'at_risk'
+                        : tar.status === 'needs_attention'
                         ? 'bg-amber-500'
                         : 'bg-rose-500'
                     }`}
@@ -148,8 +148,8 @@ export const TargetsView: React.FC<TargetsViewProps> = ({
 
                 {/* Sub details */}
                 <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>Lead: <strong className="text-slate-700 font-medium">{tar.departmentLead}</strong></span>
-                  <span className="font-mono">Deadline: {tar.deadlineDate}</span>
+                  <span>Lead: <strong className="text-slate-700 font-medium">{tar.responsibleLead}</strong></span>
+                  <span className="font-mono">Target Year: {tar.targetYear}</span>
                 </div>
               </div>
             </div>

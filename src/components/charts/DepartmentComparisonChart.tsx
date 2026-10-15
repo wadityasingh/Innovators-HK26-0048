@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { BuildingData } from '../../types';
-import { AlertCircle } from 'lucide-react';
+import { BuildingData, ResourceType } from '../../types';
+import { ChevronDown, ChevronRight, AlertCircle, Info } from 'lucide-react';
 
 interface DepartmentComparisonChartProps {
   buildings: BuildingData[];
@@ -9,57 +9,79 @@ interface DepartmentComparisonChartProps {
 export const DepartmentComparisonChart: React.FC<DepartmentComparisonChartProps> = ({
   buildings,
 }) => {
-  const [metric, setMetric] = useState<'electricity' | 'water' | 'paper' | 'waste'>('electricity');
-  const [normalizeByArea, setNormalizeByArea] = useState<boolean>(false);
+  const [metric, setMetric] = useState<ResourceType>('electricity');
+  const [expandedBuildingId, setExpandedBuildingId] = useState<string | null>(null);
 
   const getMetricMeta = () => {
     switch (metric) {
       case 'electricity':
         return {
           label: 'Electricity',
-          unit: normalizeByArea ? 'kWh / 1k sq ft' : 'kWh',
+          unit: 'kWh',
           color: 'bg-emerald-600',
-          getValue: (b: BuildingData) =>
-            normalizeByArea ? (b.electricityKwh / b.grossAreaSqFt) * 1000 : b.electricityKwh,
-          format: (v: number) =>
-            normalizeByArea ? `${v.toFixed(1)} kWh/k-sqft` : `${(v / 1000).toFixed(1)}k kWh`,
+          getDeptVal: (d: any) => d.electricityKwh,
+          format: (v: number | null) => (v === null ? 'Missing reading' : `${v.toLocaleString()} kWh`),
+          formatSummary: (v: number) => `${(v / 1000).toFixed(1)}k kWh`,
         };
       case 'water':
         return {
           label: 'Water',
-          unit: normalizeByArea ? 'kL / 1k sq ft' : 'kL',
+          unit: 'Litres',
           color: 'bg-sky-600',
-          getValue: (b: BuildingData) =>
-            normalizeByArea ? (b.waterKL / b.grossAreaSqFt) * 1000 : b.waterKL,
-          format: (v: number) =>
-            normalizeByArea ? `${v.toFixed(2)} kL/k-sqft` : `${v.toLocaleString()} kL`,
+          getDeptVal: (d: any) => d.waterLitres,
+          format: (v: number | null) =>
+            v === null ? 'Missing reading' : `${(v / 1000).toLocaleString()} kL (${v.toLocaleString()} L)`,
+          formatSummary: (v: number) => `${(v / 1000).toLocaleString()} kL`,
         };
       case 'paper':
         return {
           label: 'Paper',
-          unit: normalizeByArea ? 'Reams / 1k sq ft' : 'Reams',
+          unit: 'Sheets',
           color: 'bg-amber-600',
-          getValue: (b: BuildingData) =>
-            normalizeByArea ? (b.paperReams / b.grossAreaSqFt) * 1000 : b.paperReams,
-          format: (v: number) =>
-            normalizeByArea ? `${v.toFixed(2)} reams/k-sqft` : `${v} reams`,
+          getDeptVal: (d: any) => d.paperSheets,
+          format: (v: number | null) => (v === null ? 'Missing reading' : `${v.toLocaleString()} sheets`),
+          formatSummary: (v: number) => `${v.toLocaleString()} sheets`,
         };
       case 'waste':
         return {
-          label: 'Solid Waste',
-          unit: normalizeByArea ? 'kg / 1k sq ft' : 'kg',
+          label: 'Waste',
+          unit: 'kg',
           color: 'bg-slate-700',
-          getValue: (b: BuildingData) =>
-            normalizeByArea ? (b.wasteKg / b.grossAreaSqFt) * 1000 : b.wasteKg,
-          format: (v: number) =>
-            normalizeByArea ? `${v.toFixed(1)} kg/k-sqft` : `${(v / 1000).toFixed(1)}t`,
+          getDeptVal: (d: any) => d.wasteKg,
+          format: (v: number | null) => (v === null ? 'Missing reading' : `${v.toLocaleString()} kg`),
+          formatSummary: (v: number) => `${v.toLocaleString()} kg`,
         };
     }
   };
 
   const meta = getMetricMeta();
-  const sortedBuildings = [...buildings].sort((a, b) => meta.getValue(b) - meta.getValue(a));
-  const maxVal = Math.max(...buildings.map((b) => meta.getValue(b))) || 1;
+
+  // Calculate building totals based only on reported readings
+  const getBuildingStats = (b: BuildingData) => {
+    let sum = 0;
+    let reportedCount = 0;
+    let missingCount = 0;
+
+    b.departments.forEach((dept) => {
+      const val = meta.getDeptVal(dept);
+      if (val !== null && val !== undefined) {
+        sum += val;
+        reportedCount++;
+      } else {
+        missingCount++;
+      }
+    });
+
+    return { sum, reportedCount, missingCount, totalDepts: b.departments.length };
+  };
+
+  const buildingStats = buildings.map((b) => ({
+    building: b,
+    ...getBuildingStats(b),
+  }));
+
+  const maxVal = Math.max(...buildingStats.map((s) => s.sum)) || 1;
+  const sortedStats = [...buildingStats].sort((a, b) => b.sum - a.sum);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-2xs">
@@ -70,117 +92,150 @@ export const DepartmentComparisonChart: React.FC<DepartmentComparisonChartProps>
             Building & Department Comparative Footprint
           </h2>
           <div className="text-xs text-slate-500 mt-0.5">
-            Cross-facility benchmark for resource allocation and anomaly isolation
+            Campus → Buildings → Departments/Locations hierarchy (Click row to expand)
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Intensity Toggle */}
+        {/* Metric Selector */}
+        <div className="inline-flex p-1 bg-slate-100 rounded-lg text-xs font-medium self-start sm:self-auto">
           <button
-            onClick={() => setNormalizeByArea(!normalizeByArea)}
-            className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${
-              normalizeByArea
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-900 font-semibold'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+            onClick={() => setMetric('electricity')}
+            className={`px-2.5 py-1 rounded-md transition-colors ${
+              metric === 'electricity'
+                ? 'bg-white text-emerald-900 shadow-2xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            {normalizeByArea ? 'Per 1k Sq Ft' : 'Gross Total'}
+            Power (kWh)
           </button>
-
-          {/* Metric Selector */}
-          <div className="inline-flex p-1 bg-slate-100 rounded-lg text-xs font-medium">
-            <button
-              onClick={() => setMetric('electricity')}
-              className={`px-2.5 py-1 rounded-md transition-colors ${
-                metric === 'electricity'
-                  ? 'bg-white text-emerald-900 shadow-2xs font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Power
-            </button>
-            <button
-              onClick={() => setMetric('water')}
-              className={`px-2.5 py-1 rounded-md transition-colors ${
-                metric === 'water'
-                  ? 'bg-white text-sky-900 shadow-2xs font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Water
-            </button>
-            <button
-              onClick={() => setMetric('paper')}
-              className={`px-2.5 py-1 rounded-md transition-colors ${
-                metric === 'paper'
-                  ? 'bg-white text-amber-900 shadow-2xs font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Paper
-            </button>
-            <button
-              onClick={() => setMetric('waste')}
-              className={`px-2.5 py-1 rounded-md transition-colors ${
-                metric === 'waste'
-                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Waste
-            </button>
-          </div>
+          <button
+            onClick={() => setMetric('water')}
+            className={`px-2.5 py-1 rounded-md transition-colors ${
+              metric === 'water'
+                ? 'bg-white text-sky-900 shadow-2xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Water (L)
+          </button>
+          <button
+            onClick={() => setMetric('paper')}
+            className={`px-2.5 py-1 rounded-md transition-colors ${
+              metric === 'paper'
+                ? 'bg-white text-amber-900 shadow-2xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Paper (Sheets)
+          </button>
+          <button
+            onClick={() => setMetric('waste')}
+            className={`px-2.5 py-1 rounded-md transition-colors ${
+              metric === 'waste'
+                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Waste (kg)
+          </button>
         </div>
       </div>
 
-      {/* Horizontal Bar List */}
+      {/* Building list with drill-down */}
       <div className="space-y-3 mt-4">
-        {sortedBuildings.map((building) => {
-          const val = meta.getValue(building);
-          const pct = Math.min(100, Math.max(5, (val / maxVal) * 100));
+        {sortedStats.map(({ building, sum, reportedCount, missingCount, totalDepts }) => {
+          const pct = Math.min(100, Math.max(4, (sum / maxVal) * 100));
+          const isExpanded = expandedBuildingId === building.id;
 
           return (
-            <div key={building.id} className="group">
-              <div className="flex items-center justify-between text-xs mb-1">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold text-slate-800 truncate">
-                    {building.name}
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    ({building.code})
-                  </span>
-                  {building.anomalyDetected && (
-                    <span className="flex items-center gap-1 text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded">
-                      <AlertCircle className="w-3 h-3" />
-                      Anomaly Flagged
+            <div
+              key={building.id}
+              className="border border-slate-150 rounded-lg p-3 hover:border-slate-300 transition-colors bg-white"
+            >
+              <div
+                onClick={() => setExpandedBuildingId(isExpanded ? null : building.id)}
+                className="cursor-pointer"
+              >
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isExpanded ? (
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    )}
+                    <span className="font-semibold text-slate-900 truncate">
+                      {building.name}
                     </span>
-                  )}
-                  {building.meterStatus === 'manual_estimate' && (
-                    <span className="text-[10px] text-slate-600 italic">
-                      [Estimated Manual Log]
+                    <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                      ({building.code})
                     </span>
-                  )}
+                    {missingCount > 0 && (
+                      <span className="text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded shrink-0">
+                        {missingCount} missing log
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <span className="font-mono font-bold text-slate-900 tabular-nums">
+                      {meta.formatSummary(sum)}
+                    </span>
+                    {missingCount > 0 && (
+                      <span className="text-[10px] text-slate-400 block font-normal">
+                        ({reportedCount}/{totalDepts} depts)
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="font-mono font-semibold text-slate-900 tabular-nums ml-2 shrink-0">
-                  {meta.format(val)}
-                </span>
+
+                {/* Progress bar */}
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${meta.color}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
               </div>
 
-              {/* Progress bar */}
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className={`h-2.5 rounded-full transition-all duration-300 ${
-                    building.anomalyDetected ? 'bg-rose-500' : meta.color
-                  }`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-
-              {/* Micro specs */}
-              <div className="flex items-center justify-between text-[11px] text-slate-600 mt-0.5">
-                <span>{building.category} · {building.grossAreaSqFt.toLocaleString()} sq ft</span>
-                <span className="font-mono">Peak Demand: {building.peakDemandKw} kW</span>
-              </div>
+              {/* Department Drill-down Table (Accordion) */}
+              {isExpanded && (
+                <div className="mt-3 pt-3 border-t border-slate-100 text-xs">
+                  <div className="text-[11px] font-semibold text-slate-500 mb-2">
+                    Department & Location Logs:
+                  </div>
+                  <div className="space-y-1.5">
+                    {building.departments.map((dept) => {
+                      const val = meta.getDeptVal(dept);
+                      return (
+                        <div
+                          key={dept.id}
+                          className="flex items-center justify-between p-2 rounded bg-slate-50 text-[11px]"
+                        >
+                          <div className="min-w-0">
+                            <span className="font-medium text-slate-800">{dept.name}</span>
+                            <span className="text-slate-400 ml-1.5 text-[10px]">
+                              ({dept.type} · {dept.lastLogDate})
+                            </span>
+                            {dept.flaggedForReview && (
+                              <span className="ml-2 text-rose-700 font-medium text-[10px]">
+                                [Flagged for review]
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-mono shrink-0 ml-2">
+                            {val === null ? (
+                              <span className="text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                                Missing Reading
+                              </span>
+                            ) : (
+                              <span className="font-semibold text-slate-900">{meta.format(val)}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

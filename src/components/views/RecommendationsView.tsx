@@ -4,7 +4,6 @@ import {
   DollarSign,
   Leaf,
   Clock,
-  ShieldCheck,
   ChevronRight,
   Filter,
   AlertTriangle,
@@ -28,17 +27,17 @@ export const RecommendationsView: React.FC<RecommendationsViewProps> = ({
 
   const filtered = recommendations.filter((r) => {
     const matchesCat = categoryFilter === 'all' || r.category === categoryFilter;
-    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || r.reviewStatus === statusFilter;
     return matchesCat && matchesStatus;
   });
 
-  const totalSavings = recommendations
-    .filter((r) => r.status !== 'dismissed')
-    .reduce((sum, r) => sum + r.potentialSavingsAnnualUsd, 0);
+  const totalEstimatedSavings = recommendations
+    .filter((r) => r.reviewStatus !== 'Dismissed')
+    .reduce((sum, r) => sum + r.estimatedAnnualSavingsUsd, 0);
 
-  const totalCo2 = recommendations
-    .filter((r) => r.status !== 'dismissed')
-    .reduce((sum, r) => sum + r.co2ReductionTons, 0);
+  const totalEstimatedCarbon = recommendations
+    .filter((r) => r.reviewStatus !== 'Dismissed')
+    .reduce((sum, r) => sum + r.estimatedCarbonReductionKg, 0);
 
   return (
     <div className="space-y-6">
@@ -50,29 +49,31 @@ export const RecommendationsView: React.FC<RecommendationsViewProps> = ({
           <div className="max-w-2xl">
             <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold mb-1">
               <Sparkles className="w-4 h-4" />
-              <span>EMPIRICAL CONSERVATION PIPELINE</span>
+              <span>RESOURCE CONSERVATION PROPOSALS</span>
             </div>
             <h2 className="text-base font-bold text-slate-900">
-              AI-Detected Energy & Resource Conservation Opportunities
+              Campus Conservation Opportunities & Estimated Impacts
             </h2>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              Derived from high-frequency submeter interval deviations, outdoor weather regression, and campus schedule cross-referencing. All measures require verification by facilities engineering prior to capital commitment.
+              Preliminary initiatives identified from department utility consumption patterns. Savings are unverified model estimates and require verification before project approval.
             </p>
           </div>
 
           <div className="flex items-center gap-4 bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 shrink-0">
             <div>
-              <div className="text-[11px] text-emerald-800 font-medium">Potential Annual Utility Savings</div>
+              <div className="text-[11px] text-emerald-800 font-medium">Estimated Annual Cost Savings</div>
               <div className="text-lg font-bold font-mono text-emerald-950 tabular-nums">
-                ${totalSavings.toLocaleString()} / yr
+                ${totalEstimatedSavings.toLocaleString()} / yr
               </div>
+              <div className="text-[10px] text-slate-500 italic">Unverified projection</div>
             </div>
             <div className="h-8 w-px bg-emerald-200" />
             <div>
-              <div className="text-[11px] text-emerald-800 font-medium">Estimated Carbon Avoidance</div>
+              <div className="text-[11px] text-emerald-800 font-medium">Estimated Carbon Reduction</div>
               <div className="text-lg font-bold font-mono text-emerald-950 tabular-nums">
-                {totalCo2.toFixed(1)} MT CO₂e
+                {(totalEstimatedCarbon / 1000).toFixed(1)} MT CO₂e
               </div>
+              <div className="text-[10px] text-slate-500 italic">Calculated model</div>
             </div>
           </div>
         </div>
@@ -91,29 +92,29 @@ export const RecommendationsView: React.FC<RecommendationsViewProps> = ({
             className="px-2.5 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-800 focus:outline-hidden"
           >
             <option value="all">All Categories ({recommendations.length})</option>
-            <option value="HVAC Optimization">HVAC Optimization</option>
-            <option value="Lighting & Controls">Lighting & Controls</option>
-            <option value="Water Conservation">Water Conservation</option>
-            <option value="Digital Transition">Digital Transition</option>
+            <option value="Heating & Cooling">Heating & Cooling</option>
+            <option value="Digital Forms">Digital Forms</option>
+            <option value="Water Fixtures">Water Fixtures</option>
+            <option value="Lighting Schedule">Lighting Schedule</option>
             <option value="Waste Diversion">Waste Diversion</option>
           </select>
 
-          <span className="font-semibold text-slate-700 ml-2">Status:</span>
+          <span className="font-semibold text-slate-700 ml-2">Review Status:</span>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-2.5 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-800 focus:outline-hidden"
           >
             <option value="all">All Statuses</option>
-            <option value="review">Review Needed</option>
-            <option value="approved">Approved</option>
-            <option value="in_progress">In Progress</option>
-            <option value="dismissed">Dismissed</option>
+            <option value="Draft Proposal">Draft Proposal</option>
+            <option value="Under Review">Under Review</option>
+            <option value="Approved for Implementation">Approved for Implementation</option>
+            <option value="Dismissed">Dismissed</option>
           </select>
         </div>
 
         <div className="text-[11px] text-slate-500 font-mono">
-          Showing {filtered.length} conservation measure{filtered.length === 1 ? '' : 's'}
+          Showing {filtered.length} proposal{filtered.length === 1 ? '' : 's'}
         </div>
       </div>
 
@@ -131,19 +132,25 @@ export const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                   <span className="font-semibold text-emerald-800">{rec.category}</span>
                   <span>·</span>
                   <span>{rec.building}</span>
+                  {rec.department && (
+                    <>
+                      <span>·</span>
+                      <span className="text-slate-600">{rec.department}</span>
+                    </>
+                  )}
                   <span>·</span>
                   <span
-                    className={`font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded ${
-                      rec.status === 'approved'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : rec.status === 'in_progress'
-                        ? 'bg-sky-100 text-sky-800'
-                        : rec.status === 'dismissed'
-                        ? 'bg-slate-100 text-slate-600'
-                        : 'bg-amber-100 text-amber-800'
+                    className={`font-semibold text-[10px] px-2 py-0.5 rounded ${
+                      rec.reviewStatus === 'Approved for Implementation'
+                        ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                        : rec.reviewStatus === 'Under Review'
+                        ? 'bg-sky-100 text-sky-900 border border-sky-300'
+                        : rec.reviewStatus === 'Dismissed'
+                        ? 'bg-slate-100 text-slate-700'
+                        : 'bg-amber-100 text-amber-900 border border-amber-300'
                     }`}
                   >
-                    {rec.status.replace('_', ' ')}
+                    {rec.reviewStatus}
                   </span>
                 </div>
 
@@ -152,26 +159,27 @@ export const RecommendationsView: React.FC<RecommendationsViewProps> = ({
                 </h3>
 
                 <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                  {rec.evidenceData}
+                  {rec.supportingData}
                 </p>
               </div>
 
               {/* Metrics strip */}
               <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                 <div className="text-right">
-                  <div className="text-[11px] text-slate-500">Annual Savings</div>
+                  <div className="text-[11px] text-slate-500">Estimated Annual Savings</div>
                   <div className="text-sm font-bold font-mono text-emerald-700 tabular-nums">
-                    ${rec.potentialSavingsAnnualUsd.toLocaleString()}
+                    ${rec.estimatedAnnualSavingsUsd.toLocaleString()}
                   </div>
+                  <span className="text-[10px] text-slate-400 font-mono">Unverified Estimate</span>
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-slate-500 font-mono">
-                  <span>CO₂: {rec.co2ReductionTons}t</span>
+                  <span>Carbon: {(rec.estimatedCarbonReductionKg / 1000).toFixed(1)}t</span>
                   <span>Payback: {rec.paybackMonths}mo</span>
                 </div>
 
                 <div className="hidden sm:flex items-center gap-1 text-[11px] font-semibold text-emerald-700 mt-1">
-                  <span>Review Checklist</span>
+                  <span>Review Details</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </div>
               </div>

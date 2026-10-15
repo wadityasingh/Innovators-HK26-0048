@@ -20,8 +20,6 @@ interface TopBarProps {
   onSelectUser: (user: UserProfile) => void;
   selectedTimeRange: TimeRange;
   onChangeTimeRange: (range: TimeRange) => void;
-  selectedCampus: string;
-  onChangeCampus: (campus: string) => void;
   alerts: PriorityAlert[];
   onAcknowledgeAlert: (id: string) => void;
   onNavigateToTab: (tab: TabType) => void;
@@ -35,8 +33,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   onSelectUser,
   selectedTimeRange,
   onChangeTimeRange,
-  selectedCampus,
-  onChangeCampus,
   alerts,
   onAcknowledgeAlert,
   onNavigateToTab,
@@ -71,52 +67,52 @@ export const TopBar: React.FC<TopBarProps> = ({
       case 'dashboard':
         return {
           title: 'Campus Sustainability Dashboard',
-          subtitle: 'Executive resource consumption, diversion metrics & completeness index',
+          subtitle: 'Campus, building, and department level resource consumption & data completeness',
         };
       case 'resources':
         return {
-          title: 'Resource Monitoring & Telemetry',
-          subtitle: 'Sub-metered electricity, potable water & administrative paper flows',
+          title: 'Campus & Department Resource Monitoring',
+          subtitle: 'Electricity (kWh), water (Litres), and paper (sheets) by building & department',
         };
       case 'waste':
         return {
           title: 'Solid Waste & Diversion Management',
-          subtitle: 'Multi-stream waste tracking, composting logs & contamination audits',
+          subtitle: 'Waste streams (kg), compostable organics, clean paper, containers & landfill',
         };
       case 'recommendations':
         return {
-          title: 'AI Energy & Resource Conservation Measures',
-          subtitle: 'Empirical anomaly-derived conservation proposals pending engineering verification',
+          title: 'Conservation Recommendations (Draft Proposals)',
+          subtitle: 'Estimated savings and draft initiatives subject to facilities review',
         };
       case 'alerts':
         return {
-          title: 'Operational Alerts & Anomalies',
-          subtitle: 'Live threshold breach notifications and root-cause resolution ledger',
+          title: 'Consumption Alerts & Log Exceptions',
+          subtitle: 'Exceptions, elevated consumption flags, and missing department reports',
         };
       case 'reports':
         return {
-          title: 'Audit & Compliance Reports',
-          subtitle: 'AASHE STARS v2.2 and GHG Protocol Scope 1, 2, 3 audit summaries',
+          title: 'Internal Resource & Audit Summary Reports',
+          subtitle: 'Departmental summaries and draft ESG reporting templates',
         };
       case 'targets':
         return {
-          title: '2030 Campus Decarbonization Targets',
-          subtitle: 'Strategic institutional milestones & departmental performance goals',
+          title: 'Campus Sustainability Targets',
+          subtitle: 'Institutional targets for electricity, water, paper, and waste reduction',
         };
       case 'users':
         return {
-          title: 'User Management & Role-Based Access',
-          subtitle: 'Institutional auditor credentials, permissions & facility assignments',
+          title: 'Users & Role Responsibilities',
+          subtitle: 'Campus sustainability stakeholders, facilities coordinators, and reviewers',
         };
       case 'audits':
         return {
-          title: 'Formal Audit Logbook & History',
-          subtitle: 'Physical walkthrough inspection records, certifications & open findings',
+          title: 'Campus Audit & Inspection Logbook',
+          subtitle: 'Internal walkthrough observation records and department utility log reviews',
         };
       case 'settings':
         return {
-          title: 'Portal Settings & Tariff Profiles',
-          subtitle: 'Campus area parameters, utility tariff schedules & telemetry configuration',
+          title: 'Portal Parameters & Configuration',
+          subtitle: 'Campus floor area, population figures, utility tariffs & demo state',
         };
     }
   };
@@ -125,9 +121,9 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
-      <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-3">
+      <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2.5 sm:py-3">
         {/* Left: Mobile trigger & Page Title */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <button
             onClick={onOpenMobileMenu}
             className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 lg:hidden shrink-0"
@@ -136,26 +132,18 @@ export const TopBar: React.FC<TopBarProps> = ({
             <Menu className="w-5 h-5" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 truncate tracking-tight">
+            <h1 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 truncate tracking-tight">
               {title}
             </h1>
           </div>
         </div>
 
-        {/* Center: Context Filters (Campus & Date Range) */}
+        {/* Center: Campus Label & Date Filter */}
         <div className="hidden md:flex items-center gap-2">
-          {/* Campus Selector */}
+          {/* Fixed Single Campus Scope */}
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700">
-            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <select
-              value={selectedCampus}
-              onChange={(e) => onChangeCampus(e.target.value)}
-              className="bg-transparent border-none text-xs font-medium text-slate-800 focus:outline-hidden cursor-pointer"
-            >
-              <option value="Main Metro Campus">Main Metro Campus (Central)</option>
-              <option value="West Tech Innovation Park">West Tech Innovation Park</option>
-              <option value="North Valley Research Field">North Valley Research Field</option>
-            </select>
+            <Building2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <span className="font-semibold text-slate-900">GreenCampus University</span>
           </div>
 
           {/* Date Range Selector */}
@@ -167,16 +155,15 @@ export const TopBar: React.FC<TopBarProps> = ({
               className="bg-transparent border-none text-xs font-medium text-slate-800 focus:outline-hidden cursor-pointer"
             >
               <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
+              <option value="30d">Last 30 Days (Oct 2026)</option>
               <option value="90d">Last 90 Days (Q3)</option>
               <option value="ytd">Year to Date (2026)</option>
-              <option value="1y">Trailing 12 Months</option>
             </select>
           </div>
         </div>
 
         {/* Right: Notifications & User Profile */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Notifications Dropdown */}
           <div className="relative" ref={notificationMenuRef}>
             <button
@@ -195,7 +182,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-3">
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
                   <span className="text-xs font-bold text-slate-900">
-                    Notifications ({unreadAlerts.length} unacknowledged)
+                    Active Exceptions ({unreadAlerts.length} unacknowledged)
                   </span>
                   <button
                     onClick={() => {
@@ -233,7 +220,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                         </span>
                       </div>
                       <div className="mt-1 text-[11px] text-slate-600 line-clamp-1">
-                        {alert.building} · Observed: {alert.observedValue}
+                        {alert.building} {alert.department ? `· ${alert.department}` : ''}
                       </div>
                       {!alert.acknowledged && (
                         <div className="mt-2 flex items-center justify-end">
@@ -253,16 +240,15 @@ export const TopBar: React.FC<TopBarProps> = ({
             )}
           </div>
 
-          <div className="h-5 w-px bg-slate-200" />
+          <div className="h-5 w-px bg-slate-200 hidden sm:block" />
 
-          {/* User Profile & Role Switcher */}
+          {/* User Profile & Demo Role Switcher */}
           <div className="relative" ref={roleMenuRef}>
             <button
               onClick={() => setShowRoleMenu(!showRoleMenu)}
               className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-left"
               aria-label="User profile and role menu"
             >
-              {/* Profile Avatar with fallback initials */}
               <div className="w-8 h-8 rounded-full bg-emerald-800 text-emerald-100 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                 {currentUser.avatarInitials}
               </div>
@@ -283,10 +269,10 @@ export const TopBar: React.FC<TopBarProps> = ({
               <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-2 text-xs">
                 <div className="px-2 py-1.5 border-b border-slate-100 mb-1">
                   <div className="text-slate-500 text-[10px] uppercase font-semibold">
-                    Simulate Perspective
+                    Demo Role Perspective
                   </div>
-                  <div className="text-slate-700 text-[11px]">
-                    Switch roles to test permissions & views
+                  <div className="text-slate-600 text-[11px]">
+                    Switch perspective to review portal views by user role
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -303,7 +289,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                           : 'hover:bg-slate-50 text-slate-700'
                       }`}
                     >
-                      <div className="w-7 h-7 rounded-full bg-emerald-700 text-white flex items-center justify-center font-semibold text-xs shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-emerald-800 text-white flex items-center justify-center font-semibold text-xs shrink-0">
                         {roleUser.avatarInitials}
                       </div>
                       <div className="min-w-0 flex-1">

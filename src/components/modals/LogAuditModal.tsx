@@ -20,10 +20,10 @@ export const LogAuditModal: React.FC<LogAuditModalProps> = ({
   const [title, setTitle] = useState('');
   const [building, setBuilding] = useState(buildings[0]?.name || '');
   const [scope, setScope] = useState('');
-  const [score, setScore] = useState('88');
+  const [score, setScore] = useState('85');
   const [notes, setNotes] = useState('');
-  const [verificationMethod, setVerificationMethod] = useState<AuditRecord['verificationMethod']>(
-    'On-site physical walk'
+  const [inspectionType, setInspectionType] = useState<AuditRecord['inspectionType']>(
+    'Walkthrough Observation'
   );
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -44,12 +44,12 @@ export const LogAuditModal: React.FC<LogAuditModalProps> = ({
         year: 'numeric',
       }),
       building,
-      scope: scope || 'General sustainability and utility telemetry walk',
-      complianceScore: parseFloat(score) || 85,
+      scope: scope || 'Internal department utility walkthrough',
+      internalRating: parseInt(score, 10) || 85,
       status: 'Pending Review',
-      findingsCount: Math.floor(Math.random() * 3 + 1),
-      notes,
-      verificationMethod,
+      unresolvedItemsCount: Math.floor(Math.random() * 3),
+      notes: notes || 'Observation completed; follow-up action items noted for department.',
+      inspectionType,
     };
 
     onSaveAudit(newAudit);
@@ -65,8 +65,8 @@ export const LogAuditModal: React.FC<LogAuditModalProps> = ({
       <div className="bg-white border border-slate-200 rounded-xl max-w-lg w-full shadow-xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50/50">
           <div>
-            <h3 className="text-sm font-bold text-slate-900">Record Formal Campus Audit</h3>
-            <p className="text-xs text-slate-500">Log walkthrough findings into institutional audit ledger</p>
+            <h3 className="text-sm font-bold text-slate-900">Record Walkthrough Audit</h3>
+            <p className="text-xs text-slate-500">Log internal inspection findings and observation checklist</p>
           </div>
           <button
             onClick={onClose}
@@ -79,23 +79,23 @@ export const LogAuditModal: React.FC<LogAuditModalProps> = ({
         {isSuccess ? (
           <div className="p-8 text-center space-y-2">
             <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-            <h4 className="text-sm font-bold text-slate-900">Audit Successfully Filed</h4>
+            <h4 className="text-sm font-bold text-slate-900">Audit Record Filed</h4>
             <p className="text-xs text-slate-500">
-              Audit recorded under Pending Review status in compliance repository.
+              Audit logged under Pending Review in campus inspection logbook.
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-3.5">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Audit Title / Inspection Scope
+                Inspection Title
               </label>
               <input
                 type="text"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Q4 Residence Hall Thermal Comfort & Lighting Sensor Audit"
+                placeholder="e.g. Science Complex Water Fixture & Lab Airflow Walkthrough"
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:border-emerald-600"
               />
             </div>
@@ -120,20 +120,18 @@ export const LogAuditModal: React.FC<LogAuditModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Verification Method
+                  Inspection Method
                 </label>
                 <select
-                  value={verificationMethod}
+                  value={inspectionType}
                   onChange={(e) =>
-                    setVerificationMethod(e.target.value as AuditRecord['verificationMethod'])
+                    setInspectionType(e.target.value as AuditRecord['inspectionType'])
                   }
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:border-emerald-600"
                 >
-                  <option value="On-site physical walk">On-site physical walk</option>
-                  <option value="Telemetry automated verification">
-                    Telemetry automated verification
-                  </option>
-                  <option value="Manual meter log review">Manual meter log review</option>
+                  <option value="Walkthrough Observation">Walkthrough Observation</option>
+                  <option value="Utility Meter Log Check">Utility Meter Log Check</option>
+                  <option value="Waste Stream Inspection">Waste Stream Inspection</option>
                 </select>
               </div>
             </div>
@@ -141,13 +139,12 @@ export const LogAuditModal: React.FC<LogAuditModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Compliance Score (0–100%)
+                  Internal Rating (0–100%)
                 </label>
                 <input
                   type="number"
                   min="0"
                   max="100"
-                  step="0.1"
                   required
                   value={score}
                   onChange={(e) => setScore(e.target.value)}
@@ -157,7 +154,7 @@ export const LogAuditModal: React.FC<LogAuditModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Auditor Name
+                  Reviewer
                 </label>
                 <input
                   type="text"
@@ -170,13 +167,26 @@ export const LogAuditModal: React.FC<LogAuditModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Audit Findings & Corrective Directives
+                Walkthrough Scope
+              </label>
+              <input
+                type="text"
+                value={scope}
+                onChange={(e) => setScope(e.target.value)}
+                placeholder="Specific floors, equipment rooms, or sorting stations observed..."
+                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:border-emerald-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Observation Findings & Action Items
               </label>
               <textarea
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observed damper linkages, lighting schedule compliance, recycling contamination or pipe thermal insulation integrity..."
+                placeholder="Observed conditions, fixture leaks, lighting timer status, or sorting compliance..."
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:border-emerald-600"
               />
             </div>

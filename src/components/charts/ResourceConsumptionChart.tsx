@@ -16,30 +16,40 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
           label: 'Electricity',
           unit: 'kWh',
           color: '#059669', // emerald-600
-          lightColor: '#a7f3d0', // emerald-200
           getValue: (item: MonthlyConsumption) => item.electricityKwh,
           getTarget: (item: MonthlyConsumption) => item.targetElectricityKwh,
-          format: (v: number) => `${(v / 1000).toFixed(1)}k kWh`,
+          format: (v: number) => `${v.toLocaleString()} kWh`,
+          axisFormat: (v: number) => `${(v / 1000).toFixed(0)}k kWh`,
         };
       case 'water':
         return {
-          label: 'Potable Water',
-          unit: 'kL',
+          label: 'Water',
+          unit: 'Litres',
           color: '#0284c7', // sky-600
-          lightColor: '#bae6fd', // sky-200
-          getValue: (item: MonthlyConsumption) => item.waterKL,
-          getTarget: (item: MonthlyConsumption) => item.targetWaterKL,
-          format: (v: number) => `${v.toLocaleString()} kL`,
+          getValue: (item: MonthlyConsumption) => item.waterLitres,
+          getTarget: (item: MonthlyConsumption) => item.targetWaterLitres,
+          format: (v: number) => `${(v / 1000000).toFixed(2)}M Litres (${(v / 1000).toLocaleString()} kL)`,
+          axisFormat: (v: number) => `${(v / 1000000).toFixed(1)}M L`,
         };
       case 'paper':
         return {
-          label: 'Paper Usage',
-          unit: 'Reams',
+          label: 'Paper Consumption',
+          unit: 'Sheets',
           color: '#d97706', // amber-600
-          lightColor: '#fde68a', // amber-200
-          getValue: (item: MonthlyConsumption) => item.paperReams,
-          getTarget: (item: MonthlyConsumption) => item.targetPaperReams,
-          format: (v: number) => `${v.toLocaleString()} reams`,
+          getValue: (item: MonthlyConsumption) => item.paperSheets,
+          getTarget: (item: MonthlyConsumption) => item.targetPaperSheets,
+          format: (v: number) => `${v.toLocaleString()} sheets`,
+          axisFormat: (v: number) => `${(v / 1000).toFixed(0)}k sheets`,
+        };
+      case 'waste':
+        return {
+          label: 'Solid Waste',
+          unit: 'kg',
+          color: '#475569', // slate-600
+          getValue: (item: MonthlyConsumption) => item.wasteKg,
+          getTarget: (item: MonthlyConsumption) => item.divertedWasteKg,
+          format: (v: number) => `${v.toLocaleString()} kg total`,
+          axisFormat: (v: number) => `${(v / 1000).toFixed(0)}k kg`,
         };
     }
   };
@@ -55,18 +65,18 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-            Monthly Consumption vs. Reduction Target
+            Monthly Campus Consumption vs. Target Milestones
           </h2>
           <div className="text-xs text-slate-500 mt-0.5">
-            Measured baseline vs institutional reduction milestones (May – Oct 2026)
+            Measured historical logs vs target ceilings (May – Oct 2026)
           </div>
         </div>
 
         {/* Interactive Segmented Filter */}
-        <div className="inline-flex p-1 bg-slate-100 rounded-lg text-xs font-medium self-start sm:self-auto">
+        <div className="inline-flex flex-wrap p-1 bg-slate-100 rounded-lg text-xs font-medium self-start sm:self-auto">
           <button
             onClick={() => setSelectedResource('electricity')}
-            className={`px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
+            className={`px-2.5 py-1.5 rounded-md transition-colors whitespace-nowrap ${
               selectedResource === 'electricity'
                 ? 'bg-white text-emerald-900 shadow-2xs font-semibold'
                 : 'text-slate-600 hover:text-slate-900'
@@ -76,23 +86,33 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
           </button>
           <button
             onClick={() => setSelectedResource('water')}
-            className={`px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
+            className={`px-2.5 py-1.5 rounded-md transition-colors whitespace-nowrap ${
               selectedResource === 'water'
                 ? 'bg-white text-sky-900 shadow-2xs font-semibold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Water (kL)
+            Water (Litres)
           </button>
           <button
             onClick={() => setSelectedResource('paper')}
-            className={`px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
+            className={`px-2.5 py-1.5 rounded-md transition-colors whitespace-nowrap ${
               selectedResource === 'paper'
                 ? 'bg-white text-amber-900 shadow-2xs font-semibold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Paper (Reams)
+            Paper (Sheets)
+          </button>
+          <button
+            onClick={() => setSelectedResource('waste')}
+            className={`px-2.5 py-1.5 rounded-md transition-colors whitespace-nowrap ${
+              selectedResource === 'waste'
+                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Waste (kg)
           </button>
         </div>
       </div>
@@ -103,12 +123,12 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
           {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
             const y = 180 - pct * 150;
-            const gridVal = (maxVal * pct).toFixed(0);
+            const gridVal = maxVal * pct;
             return (
               <g key={idx}>
-                <line x1="40" y1={y} x2="590" y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                <text x="35" y={y + 3} textAnchor="end" className="text-[9px] fill-slate-400 font-mono">
-                  {Number(gridVal) >= 1000 ? `${(Number(gridVal) / 1000).toFixed(0)}k` : gridVal}
+                <line x1="50" y1={y} x2="590" y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                <text x="45" y={y + 3} textAnchor="end" className="text-[9px] fill-slate-400 font-mono">
+                  {meta.axisFormat(gridVal)}
                 </text>
               </g>
             );
@@ -116,7 +136,7 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
 
           {/* Bar Groups */}
           {data.map((item, index) => {
-            const x = 70 + index * 85;
+            const x = 80 + index * 85;
             const actualVal = meta.getValue(item);
             const targetVal = meta.getTarget(item);
             const actualHeight = (actualVal / maxVal) * 150;
@@ -132,9 +152,9 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
               >
                 {/* Background hover highlight */}
                 <rect
-                  x={x - 25}
+                  x={x - 24}
                   y={20}
-                  width="50"
+                  width="48"
                   height="170"
                   fill={isHovered ? '#f8fafc' : 'transparent'}
                   rx="4"
@@ -154,9 +174,9 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
 
                 {/* Target marker line */}
                 <line
-                  x1={x - 20}
+                  x1={x - 18}
                   y1={targetY}
-                  x2={x + 20}
+                  x2={x + 18}
                   y2={targetY}
                   stroke="#ef4444"
                   strokeWidth="2.5"
@@ -188,7 +208,7 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
               transform: 'translateX(-50%)',
             }}
           >
-            <div className="font-semibold text-slate-200">{data[hoveredIndex].month} Telemetry</div>
+            <div className="font-semibold text-slate-200">{data[hoveredIndex].month} Summary</div>
             <div className="mt-1 flex items-center justify-between gap-4 font-mono text-[11px]">
               <span className="text-slate-400">Actual:</span>
               <span className="text-emerald-400 font-semibold">
@@ -202,11 +222,7 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
               </span>
             </div>
             <div className="mt-1 pt-1 border-t border-slate-700 text-[10px] text-slate-300">
-              {meta.getValue(data[hoveredIndex]) <= meta.getTarget(data[hoveredIndex]) ? (
-                <span className="text-emerald-300">Compliant (Under Target Ceiling)</span>
-              ) : (
-                <span className="text-rose-300">Over Target Ceiling</span>
-              )}
+              Data Completeness: {data[hoveredIndex].reportingCompletenessPercent}% of departments logged
             </div>
           </div>
         )}
@@ -220,7 +236,7 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
               className="w-3 h-3 rounded-xs inline-block"
               style={{ backgroundColor: meta.color }}
             />
-            <span>Actual Consumption</span>
+            <span>Reported Consumption</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-4 h-0.5 border-t-2 border-dashed border-rose-500 inline-block" />
@@ -228,7 +244,7 @@ export const ResourceConsumptionChart: React.FC<ResourceConsumptionChartProps> =
           </div>
         </div>
         <div className="text-[11px] text-slate-500 font-mono">
-          Oct MTD Progress: <span className="text-emerald-700 font-semibold">3.1% below ceiling</span>
+          Oct 2026 MTD: <span className="text-emerald-700 font-semibold">3.9% under monthly ceiling</span>
         </div>
       </div>
     </div>
