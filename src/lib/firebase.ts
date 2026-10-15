@@ -1,28 +1,72 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
+import { getFirestore, doc, getDocFromServer, Firestore } from 'firebase/firestore';
 import rawConfig from '../../firebase-applet-config.json';
 
-// Support both generated json config and environment variables
-const firebaseConfig = {
-  projectId: rawConfig.projectId || import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  appId: rawConfig.appId || import.meta.env.VITE_FIREBASE_APP_ID,
-  apiKey: rawConfig.apiKey || import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: rawConfig.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  firestoreDatabaseId: rawConfig.firestoreDatabaseId || import.meta.env.VITE_FIRESTORE_DATABASE_ID || '(default)',
-  storageBucket: rawConfig.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: rawConfig.messagingSenderId || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  oAuthClientId: rawConfig.oAuthClientId,
+// Built-in default configuration for the GreenCampus AI project
+const DEFAULT_FIREBASE_CONFIG = {
+  projectId: 'peaceful-option-fw1xt',
+  appId: '1:1009020100797:web:158a961c0b645929da57d4',
+  apiKey: 'AIzaSyCcRZ01oXnWRi9YOWF4iMUevg4Fk9AbnRM',
+  authDomain: 'peaceful-option-fw1xt.firebaseapp.com',
+  firestoreDatabaseId: 'ai-studio-greencampusaisus-1e0b2fde-bec7-42d3-a5fe-6d19f47ea4da',
+  storageBucket: 'peaceful-option-fw1xt.firebasestorage.app',
+  messagingSenderId: '1009020100797',
+  oAuthClientId: '1009020100797-ml6tqdrgejdonneo578q8u7p6bfgkuqb.apps.googleusercontent.com',
 };
 
-export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const fileConfig = (rawConfig || {}) as Record<string, string | undefined>;
 
-// CRITICAL: use firestoreDatabaseId if configured
-export const db = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+// Hierarchy: 1. Environment variables -> 2. Config file -> 3. Project defaults
+export const firebaseConfig = {
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || fileConfig.projectId || DEFAULT_FIREBASE_CONFIG.projectId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || fileConfig.appId || DEFAULT_FIREBASE_CONFIG.appId,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || fileConfig.apiKey || DEFAULT_FIREBASE_CONFIG.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || fileConfig.authDomain || DEFAULT_FIREBASE_CONFIG.authDomain,
+  firestoreDatabaseId: import.meta.env.VITE_FIRESTORE_DATABASE_ID || fileConfig.firestoreDatabaseId || DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId || '(default)',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || fileConfig.storageBucket || DEFAULT_FIREBASE_CONFIG.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || fileConfig.messagingSenderId || DEFAULT_FIREBASE_CONFIG.messagingSenderId,
+  oAuthClientId: fileConfig.oAuthClientId || DEFAULT_FIREBASE_CONFIG.oAuthClientId,
+};
 
-export const auth = getAuth(app);
+let appInstance: FirebaseApp;
+let dbInstance: Firestore;
+let authInstance: Auth;
+let configured = false;
+let initErrorMessage: string | null = null;
+
+try {
+  appInstance = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  dbInstance = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+    ? getFirestore(appInstance, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(appInstance);
+  authInstance = getAuth(appInstance);
+  configured = true;
+} catch (err: unknown) {
+  initErrorMessage = err instanceof Error ? err.message : String(err);
+  console.warn('Firebase initialization notice (resilient mode active):', initErrorMessage);
+
+  // Fallback to prevent app crash if custom config was malformed
+  try {
+    appInstance = getApps().length > 0 ? getApp() : initializeApp(DEFAULT_FIREBASE_CONFIG);
+    dbInstance = getFirestore(appInstance, DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId);
+    authInstance = getAuth(appInstance);
+    configured = true;
+  } catch (fallbackErr) {
+    console.error('Firebase fallback could not initialize:', fallbackErr);
+    // Provide non-crashing objects
+    appInstance = (getApps().length > 0 ? getApp() : null) as unknown as FirebaseApp;
+    dbInstance = null as unknown as Firestore;
+    authInstance = null as unknown as Auth;
+    configured = false;
+  }
+}
+
+export const app = appInstance;
+export const db = dbInstance;
+export const auth = authInstance;
+export const isFirebaseConfigured = configured;
+export const firebaseInitError = initErrorMessage;
 export const googleAuthProvider = new GoogleAuthProvider();
 
 export enum OperationType {
@@ -52,15 +96,16 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const currentFbUser = auth?.currentUser;
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map((p) => ({
+      userId: currentFbUser?.uid,
+      email: currentFbUser?.email,
+      emailVerified: currentFbUser?.emailVerified,
+      isAnonymous: currentFbUser?.isAnonymous,
+      tenantId: currentFbUser?.tenantId,
+      providerInfo: currentFbUser?.providerData?.map((p) => ({
         providerId: p.providerId,
         email: p.email,
       })) || [],
@@ -74,6 +119,9 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 // Boot connection verification helper
 export async function testFirestoreConnection(): Promise<boolean> {
+  if (!db) {
+    return false;
+  }
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
     return true;

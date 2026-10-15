@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Loader2,
   ExternalLink,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { SystemRole } from '../../types';
@@ -36,6 +37,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
     registerWithEmail,
     authError,
     clearAuthError,
+    isFirebaseConfigured,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>(defaultTab);
@@ -169,6 +171,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
 
         {/* Content */}
         <div className="p-6 space-y-4">
+          {/* Unconfigured notice */}
+          {!isFirebaseConfigured && (
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2 text-xs text-amber-900">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <span className="font-semibold block text-amber-950">Standalone Demo Mode</span>
+                Firebase cloud keys are not configured for this domain. All application features, modules, and role views are accessible in offline demo mode.
+              </div>
+            </div>
+          )}
+
           {/* Error Message */}
           {displayError && (
             <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 flex items-start gap-2 text-xs text-rose-900">

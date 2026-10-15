@@ -321,6 +321,38 @@ Use the project's configured type-checking and test commands as well. A successf
 
 ---
 
+🚀 Deployment Guide (Render & GitHub)
+
+### Deploying on Render (Static Site — Recommended)
+
+1. Connect your repository (`https://github.com/wadityasingh/Innovators-HK26-0048`) to Render.
+2. Select **Static Site**.
+3. Configure the build parameters:
+   - **Name:** `greencampus-ai`
+   - **Branch:** `main`
+   - **Build Command:** `npm run build`
+   - **Publish Directory:** `dist`
+4. Add the following **Environment Variables** in Render's **Environment** tab:
+   ```env
+   VITE_FIREBASE_API_KEY=AIzaSyCcRZ01oXnWRi9YOWF4iMUevg4Fk9AbnRM
+   VITE_FIREBASE_PROJECT_ID=peaceful-option-fw1xt
+   VITE_FIREBASE_AUTH_DOMAIN=peaceful-option-fw1xt.firebaseapp.com
+   VITE_FIRESTORE_DATABASE_ID=ai-studio-greencampusaisus-1e0b2fde-bec7-42d3-a5fe-6d19f47ea4da
+   VITE_FIREBASE_STORAGE_BUCKET=peaceful-option-fw1xt.firebasestorage.app
+   VITE_FIREBASE_MESSAGING_SENDER_ID=1009020100797
+   VITE_FIREBASE_APP_ID=1:1009020100797:web:158a961c0b645929da57d4
+   ```
+5. **SPA Redirect / Rewrites (Automatically Configured):**
+   - The repository includes `public/_redirects` and `render.yaml` with rewrite rules (`/* -> /index.html 200`) so all deep routes and page refreshes work seamlessly without 404s.
+
+### Deploying on GitHub Pages
+
+1. In GitHub Repository **Settings > Pages**, choose **Deploy from a branch** (`gh-pages` or `main/docs`).
+2. The project's `vite.config.ts` uses relative asset resolution (`base: './'`), so all JS and CSS assets load properly under any subdirectory or custom domain.
+3. Fallback `public/404.html` is automatically bundled to redirect deep routes directly to the application.
+
+---
+
 ⚙️ Environment Configuration
 
 Depending on the implemented integrations, configuration may include:

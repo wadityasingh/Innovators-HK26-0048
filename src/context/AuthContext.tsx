@@ -8,7 +8,7 @@ import {
   signOut,
   updateProfile,
 } from 'firebase/auth';
-import { auth, googleAuthProvider, testFirestoreConnection } from '../lib/firebase';
+import { auth, googleAuthProvider, testFirestoreConnection, isFirebaseConfigured, firebaseInitError } from '../lib/firebase';
 import { getFirestoreUser, createOrUpdateUserDoc, UserDocData } from '../lib/firestoreService';
 import { AuthenticatedUser, SystemRole, UserProfile } from '../types';
 import { CURRENT_USER } from '../data/mockData';
@@ -21,6 +21,7 @@ interface AuthContextType {
   appMode: 'real' | 'demo';
   isLoading: boolean;
   firestoreConnected: boolean;
+  isFirebaseConfigured: boolean;
   authError: string | null;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
@@ -70,6 +71,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Listen to Firebase Auth state
   useEffect(() => {
+    if (!auth || !isFirebaseConfigured) {
+      setFirebaseUser(null);
+      setAuthUser(null);
+      setAppMode('demo');
+      setIsLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setIsLoading(true);
       if (fbUser) {
@@ -158,6 +167,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = async () => {
     setAuthError(null);
+    if (!auth || !isFirebaseConfigured) {
+      setAuthError('Firebase Authentication is not configured for this environment. Please configure Firebase API keys or continue in Demo Mode.');
+      return;
+    }
     try {
       await signInWithPopup(auth, googleAuthProvider);
     } catch (err: unknown) {
@@ -177,6 +190,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithEmail = async (email: string, pass: string) => {
     setAuthError(null);
+    if (!auth || !isFirebaseConfigured) {
+      setAuthError('Firebase Authentication is not configured for this environment. Please configure Firebase API keys or continue in Demo Mode.');
+      return;
+    }
     try {
       await signInWithEmailAndPassword(auth, email, pass);
     } catch (err: unknown) {
@@ -203,6 +220,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     departmentName?: string
   ) => {
     setAuthError(null);
+    if (!auth || !isFirebaseConfigured) {
+      setAuthError('Firebase Authentication is not configured for this environment. Please configure Firebase API keys or continue in Demo Mode.');
+      return;
+    }
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(cred.user, { displayName });
@@ -240,7 +261,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     setAuthError(null);
-    await signOut(auth);
+    if (auth) {
+      await signOut(auth);
+    }
     setAppMode('demo');
   };
 
@@ -282,6 +305,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         appMode,
         isLoading,
         firestoreConnected,
+        isFirebaseConfigured,
         authError,
         loginWithGoogle,
         loginWithEmail,
