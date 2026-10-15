@@ -26,7 +26,10 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == 'sadityasingh6275520@gmail.com'
+        request.auth.token.email in [
+          'sadityasingh6275520@gmail.com',
+          'aadityasinghrajput8957190@gmail.com'
+        ]
       );
     }
 
@@ -69,9 +72,9 @@ service cloud.firestore {
     // 2. Users Collection
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
+      allow list: if isAdmin() || isSustainabilityCoordinator();
       allow create: if isSignedIn() && request.auth.uid == userId && (
-        incoming().role in ['Department Staff', 'Sustainability Coordinator'] || isAdmin()
+        incoming().role in ['Department Staff', 'Sustainability Coordinator', 'Admin'] || isAdmin()
       );
       allow update: if isSignedIn() && (
         isAdmin() ||
@@ -109,16 +112,7 @@ service cloud.firestore {
 
     // 6. Resource Readings Collection
     match /readings/{readingId} {
-      allow get: if isSignedIn() && (
-        isAdmin() ||
-        isSustainabilityCoordinator() ||
-        (hasUserDoc() && resource.data.departmentId == getUserData().departmentId)
-      );
-      allow list: if isSignedIn() && (
-        isAdmin() ||
-        isSustainabilityCoordinator() ||
-        (hasUserDoc() && resource.data.departmentId == getUserData().departmentId)
-      );
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidReading(incoming()) && incoming().enteredByUid == request.auth.uid && (
         isAdmin() ||
         isSustainabilityCoordinator() ||

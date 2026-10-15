@@ -194,21 +194,25 @@ export async function fetchReadings(
 ): Promise<ResourceReading[]> {
   const path = 'readings';
   try {
+    let snap;
     // If department staff, query only by their assigned departmentId
-    if (userRole === 'Department Staff' && userDepartmentId) {
+    if (userRole === 'Department Staff') {
+      if (!userDepartmentId) {
+        return [];
+      }
       const q = query(
         collection(db, 'readings'),
-        where('departmentId', '==', userDepartmentId),
-        orderBy('date', 'desc')
+        where('departmentId', '==', userDepartmentId)
       );
-      const snap = await getDocs(q);
-      return snap.docs.map((d) => ({ ...(d.data() as ResourceReading), id: d.id }));
+      snap = await getDocs(q);
+    } else {
+      // Admins & Sustainability Coordinators get all readings
+      snap = await getDocs(collection(db, 'readings'));
     }
 
-    // Admins & Sustainability Coordinators get all readings
-    const q = query(collection(db, 'readings'), orderBy('date', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ ...(d.data() as ResourceReading), id: d.id }));
+    const items = snap.docs.map((d) => ({ ...(d.data() as ResourceReading), id: d.id }));
+    items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return items;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
   }

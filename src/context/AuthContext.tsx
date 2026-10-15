@@ -41,8 +41,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Known initial admin email from project metadata
-const ADMIN_BOOTSTRAP_EMAIL = 'sadityasingh6275520@gmail.com';
+// Known initial administrator emails for campus setup & audit portal
+const ADMIN_BOOTSTRAP_EMAILS = [
+  'sadityasingh6275520@gmail.com',
+  'aadityasinghrajput8957190@gmail.com',
+];
+
+export const isBootstrapAdminEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  return ADMIN_BOOTSTRAP_EMAILS.some((adminEmail) => adminEmail.toLowerCase() === email.toLowerCase());
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -68,23 +76,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setFirebaseUser(fbUser);
         try {
           let userDoc = await getFirestoreUser(fbUser.uid);
+          const isDefaultAdmin = isBootstrapAdminEmail(fbUser.email);
 
-          // Bootstrap role if document does not exist yet
-          if (!userDoc) {
-            const isDefaultAdmin =
-              fbUser.email?.toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase();
-            const initialRole: SystemRole = isDefaultAdmin ? 'Admin' : 'Department Staff';
+          // Bootstrap role if document does not exist yet or upgrade to Admin if bootstrap admin
+          if (!userDoc || (isDefaultAdmin && userDoc.role !== 'Admin')) {
+            const initialRole: SystemRole = isDefaultAdmin ? 'Admin' : (userDoc?.role || 'Department Staff');
 
             userDoc = {
               uid: fbUser.uid,
               email: fbUser.email || '',
-              displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'Campus User',
+              displayName: userDoc?.displayName || fbUser.displayName || fbUser.email?.split('@')[0] || 'Campus User',
               role: initialRole,
-              departmentId: isDefaultAdmin ? 'dept-admin' : 'dept-facilities',
-              departmentName: isDefaultAdmin ? 'Campus Administration' : 'Facilities & Operations',
-              buildingId: isDefaultAdmin ? 'bldg-admin' : 'bldg-science',
-              buildingName: isDefaultAdmin ? 'Administration Complex' : 'Science & Engineering Complex',
-              createdAt: new Date().toISOString(),
+              departmentId: isDefaultAdmin ? 'dept-admin' : (userDoc?.departmentId || 'dept-facilities'),
+              departmentName: isDefaultAdmin ? 'Campus Administration' : (userDoc?.departmentName || 'Facilities & Operations'),
+              buildingId: isDefaultAdmin ? 'bldg-admin' : (userDoc?.buildingId || 'bldg-science'),
+              buildingName: isDefaultAdmin ? 'Administration Complex' : (userDoc?.buildingName || 'Science & Engineering Complex'),
+              createdAt: userDoc?.createdAt || new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
             await createOrUpdateUserDoc(userDoc);
@@ -112,10 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: fbUser.email,
             displayName: fbUser.displayName || 'Campus User',
             photoURL: fbUser.photoURL,
-            role:
-              fbUser.email?.toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase()
-                ? 'Admin'
-                : 'Department Staff',
+            role: isBootstrapAdminEmail(fbUser.email) ? 'Admin' : 'Department Staff',
           });
         }
       } else {
@@ -203,9 +207,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(cred.user, { displayName });
 
-      // Automatically assign Admin if matches the administrator bootstrap email
-      const finalRole: SystemRole =
-        email.toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase() ? 'Admin' : role;
+      // Automatically assign Admin if matches an administrator bootstrap email
+      const finalRole: SystemRole = isBootstrapAdminEmail(email) ? 'Admin' : role;
 
       const newUserDoc: UserDocData = {
         uid: cred.user.uid,

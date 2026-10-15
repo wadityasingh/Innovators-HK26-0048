@@ -134,54 +134,82 @@ function AppWorkspace() {
 
   // Load Real Data from Firestore when in Real Mode & Authenticated
   const loadRealFirestoreData = useCallback(async () => {
-    if (!firebaseUser) return;
+    if (!firebaseUser || !authUser) return;
     setIsRealLoading(true);
     setRealDataError(null);
     try {
       // 1. Fetch real readings (respecting role-based scope: department staff gets only their department)
-      const readingsData = await fetchReadings(authUser?.role, authUser?.departmentId);
-      setRealReadings(readingsData || []);
+      try {
+        const readingsData = await fetchReadings(authUser.role, authUser.departmentId);
+        setRealReadings(readingsData || []);
+      } catch (readErr) {
+        console.warn('Could not load readings from Firestore:', readErr);
+      }
 
       // 2. Fetch buildings hierarchy
-      const buildingsData = await fetchBuildings();
-      setRealBuildings(buildingsData || []);
+      try {
+        const buildingsData = await fetchBuildings();
+        setRealBuildings(buildingsData || []);
+      } catch (bldErr) {
+        console.warn('Could not load buildings from Firestore:', bldErr);
+      }
 
       // 3. Fetch targets
-      const targetsData = await fetchTargets();
-      setRealTargets(targetsData || []);
+      try {
+        const targetsData = await fetchTargets();
+        setRealTargets(targetsData || []);
+      } catch (tgtErr) {
+        console.warn('Could not load targets from Firestore:', tgtErr);
+      }
 
       // 4. Fetch waste streams
-      const wasteData = await fetchWasteCategories();
-      setRealWaste(wasteData || []);
+      try {
+        const wasteData = await fetchWasteCategories();
+        setRealWaste(wasteData || []);
+      } catch (wstErr) {
+        console.warn('Could not load waste categories from Firestore:', wstErr);
+      }
 
       // 5. Fetch audits (protected: coordinator or admin only)
-      if (authUser?.role === 'Admin' || authUser?.role === 'Sustainability Coordinator') {
-        const auditsData = await fetchAudits();
-        setRealAudits(auditsData || []);
+      if (authUser.role === 'Admin' || authUser.role === 'Sustainability Coordinator') {
+        try {
+          const auditsData = await fetchAudits();
+          setRealAudits(auditsData || []);
+        } catch (audErr) {
+          console.warn('Could not load audits from Firestore:', audErr);
+        }
       }
 
       // 6. Fetch users (admin only)
-      if (authUser?.role === 'Admin') {
-        const usersData = await fetchAllUsers();
-        setRealUsers(usersData || []);
+      if (authUser.role === 'Admin') {
+        try {
+          const usersData = await fetchAllUsers();
+          setRealUsers(usersData || []);
+        } catch (usrErr) {
+          console.warn('Could not load users from Firestore:', usrErr);
+        }
       }
 
       // 7. Fetch settings
-      const settingsData = await fetchCampusSettings();
-      setRealSettings(settingsData || null);
+      try {
+        const settingsData = await fetchCampusSettings();
+        setRealSettings(settingsData || null);
+      } catch (setErr) {
+        console.warn('Could not load settings from Firestore:', setErr);
+      }
     } catch (err: unknown) {
       console.warn('Real Firestore load exception:', err);
       setRealDataError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsRealLoading(false);
     }
-  }, [firebaseUser, authUser?.role, authUser?.departmentId]);
+  }, [firebaseUser, authUser]);
 
   useEffect(() => {
-    if (appMode === 'real' && firebaseUser) {
+    if (appMode === 'real' && firebaseUser && authUser) {
       loadRealFirestoreData();
     }
-  }, [appMode, firebaseUser, loadRealFirestoreData]);
+  }, [appMode, firebaseUser, authUser, loadRealFirestoreData]);
 
   // Sync approved reading into building department cards
   const syncApprovedReadingToBuildings = (r: ResourceReading, isReal: boolean) => {
