@@ -80,8 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: fbUser.email || '',
               displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'Campus User',
               role: initialRole,
-              departmentId: isDefaultAdmin ? undefined : 'dept-facilities',
+              departmentId: isDefaultAdmin ? 'dept-admin' : 'dept-facilities',
               departmentName: isDefaultAdmin ? 'Campus Administration' : 'Facilities & Operations',
+              buildingId: isDefaultAdmin ? 'bldg-admin' : 'bldg-science',
+              buildingName: isDefaultAdmin ? 'Administration Complex' : 'Science & Engineering Complex',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };

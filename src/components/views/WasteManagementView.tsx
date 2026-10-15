@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Trash2, PlusCircle, AlertCircle, CheckCircle2, Truck, Scale } from 'lucide-react';
+import { Trash2, PlusCircle, AlertCircle, CheckCircle2, Truck, Scale, Recycle, Apple, Package } from 'lucide-react';
 import { WasteCategory } from '../../types';
 import { WasteCompositionChart } from '../charts/WasteCompositionChart';
 import { DemoNotice } from '../common/DemoNotice';
 
 interface WasteManagementViewProps {
   wasteCategories: WasteCategory[];
+  onUpdateWasteCategories?: (categories: WasteCategory[]) => void;
   onResetData: () => void;
 }
 
 export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
   wasteCategories,
+  onUpdateWasteCategories,
   onResetData,
 }) => {
   const [showLogModal, setShowLogModal] = useState(false);
@@ -25,7 +27,8 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
       id: 'MNF-801',
       date: 'Oct 14, 2026 09:30 AM',
       facility: 'Orchard Commons Dining Hub',
-      stream: 'Compostable Food & Organics',
+      stream: 'Compostable Food & Organics (Wet)',
+      classification: 'Wet Organics',
       weightKg: 840,
       hauler: 'Regional Composting Partner',
       disposition: 'Composted',
@@ -34,7 +37,8 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
       id: 'MNF-802',
       date: 'Oct 13, 2026 03:15 PM',
       facility: 'Founders Administration Hall',
-      stream: 'Clean Paper & Flattened Cardboard',
+      stream: 'Clean Paper & Flattened Cardboard (Dry)',
+      classification: 'Dry Recyclables',
       weightKg: 320,
       hauler: 'Fiber Recovery Recycler',
       disposition: 'Recycled',
@@ -43,7 +47,8 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
       id: 'MNF-803',
       date: 'Oct 12, 2026 08:45 AM',
       facility: 'Evergreen Residence Hall North',
-      stream: 'Bottles, Cans & Rigid Containers',
+      stream: 'Bottles, Cans & Rigid Plastics (Recyclable)',
+      classification: 'Recyclables',
       weightKg: 460,
       hauler: 'Clean Stream MRF',
       disposition: 'Recycled',
@@ -52,7 +57,8 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
       id: 'MNF-804',
       date: 'Oct 11, 2026 01:20 PM',
       facility: 'Franklin Science Center',
-      stream: 'Municipal Landfill Waste',
+      stream: 'Municipal Landfill Solid Waste',
+      classification: 'Landfill Waste',
       weightKg: 910,
       hauler: 'Municipal Waste Services',
       disposition: 'Landfill',
@@ -65,23 +71,59 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
     .reduce((sum, c) => sum + c.weightKg, 0);
   const diversionRate = totalKg > 0 ? (divertedKg / totalKg) * 100 : 0;
 
+  // Stream Classification Helper
+  const getStreamClassification = (streamId: string) => {
+    switch (streamId) {
+      case 'waste-compost':
+        return { label: 'Wet Organics', badge: 'bg-emerald-100 text-emerald-900 border-emerald-300', icon: Apple };
+      case 'waste-paper':
+      case 'waste-cardboard':
+        return { label: 'Dry Paper / Fiber', badge: 'bg-amber-100 text-amber-900 border-amber-300', icon: Package };
+      case 'waste-plastic-metal':
+      case 'waste-recycling':
+        return { label: 'Recyclables (Bottles/Cans)', badge: 'bg-sky-100 text-sky-900 border-sky-300', icon: Recycle };
+      default:
+        return { label: 'Non-Diverted Landfill', badge: 'bg-slate-100 text-slate-800 border-slate-300', icon: Trash2 };
+    }
+  };
+
   const handleSaveWeighIn = (e: React.FormEvent) => {
     e.preventDefault();
     const kg = parseFloat(weighInWeight);
     if (isNaN(kg) || kg <= 0) return;
 
     const streamObj = wasteCategories.find((c) => c.id === weighInStream);
+    const classification = getStreamClassification(weighInStream);
+
     const newManifest = {
       id: `MNF-${Math.floor(Math.random() * 800 + 810)}`,
       date: 'Just now',
       facility: weighInBuilding,
       stream: streamObj?.name || 'Solid Waste',
+      classification: classification.label,
       weightKg: kg,
       hauler: streamObj?.collectionPoint || 'Contracted Hauler',
       disposition: streamObj?.isDiverted ? 'Diverted' : 'Landfill',
     };
 
     setManifests([newManifest, ...manifests]);
+
+    // Update categories live
+    if (onUpdateWasteCategories) {
+      const updatedCategories = wasteCategories.map((c) => {
+        if (c.id === weighInStream) {
+          return { ...c, weightKg: c.weightKg + kg };
+        }
+        return c;
+      });
+      const newTotal = updatedCategories.reduce((s, c) => s + c.weightKg, 0);
+      const recomputed = updatedCategories.map((c) => ({
+        ...c,
+        percentage: newTotal > 0 ? Math.round((c.weightKg / newTotal) * 1000) / 10 : 0,
+      }));
+      onUpdateWasteCategories(recomputed);
+    }
+
     setLogSuccess(true);
     setTimeout(() => {
       setLogSuccess(false);
@@ -101,7 +143,7 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
             Solid Waste Stream Management & Diversion Tracking
           </h2>
           <p className="text-xs text-slate-500">
-            Monitor weighed waste streams (kg), compostable organics, clean paper, and landfill totals
+            Wet compostables, dry paper/cardboard, container recyclables, and landfill diversion rates
           </p>
         </div>
 
@@ -112,6 +154,54 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
           <Scale className="w-4 h-4" />
           <span>Record Waste Weigh-In (kg)</span>
         </button>
+      </div>
+
+      {/* 4 Classification Cards: Wet, Dry, Recyclable, Landfill */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {wasteCategories.map((cat) => {
+          const classMeta = getStreamClassification(cat.id);
+          const Icon = classMeta.icon;
+
+          return (
+            <div
+              key={cat.id}
+              className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3.5 h-3.5 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <h3 className="text-xs font-bold text-slate-900 truncate">{cat.name}</h3>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${classMeta.badge}`}>
+                    {classMeta.label}
+                  </span>
+                </div>
+
+                <div className="mt-3 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">
+                    {cat.weightKg.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-slate-500 font-mono">kg</span>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span>{cat.percentage}% of total waste</span>
+                <span
+                  className={`font-semibold ${
+                    cat.isDiverted ? 'text-emerald-700' : 'text-slate-600'
+                  }`}
+                >
+                  {cat.isDiverted ? 'Diverted' : 'Landfill'}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Interactive Waste Composition & Stream Breakdown */}
@@ -125,7 +215,7 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-xl font-bold font-mono text-slate-900 tabular-nums">
-            13,800 kg
+            {(wasteCategories.find((c) => c.id === 'waste-compost')?.weightKg || 13800).toLocaleString()} kg
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
             Pre-consumer dining preparation scraps diverted to regional composting site
@@ -147,7 +237,7 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
 
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-2">
-            <span>Landfill Tipping Fee Surcharge Avoided</span>
+            <span>Landfill Tipping Fee Avoided</span>
             <Scale className="w-4 h-4 text-emerald-700" />
           </div>
           <div className="text-xl font-bold font-mono text-emerald-900 tabular-nums">
@@ -167,20 +257,20 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
               Recent Campus Hauling Scale Tickets
             </h3>
             <p className="text-xs text-slate-500">
-              Internal log of waste scale tickets and hauling weight receipts
+              Scale ticket receipts and hauling records with wet/dry/recyclable classification
             </p>
           </div>
           <Truck className="w-5 h-5 text-slate-400" />
         </div>
 
         <div className="overflow-x-auto border border-slate-150 rounded-lg">
-          <table className="w-full text-xs text-left min-w-[640px]">
+          <table className="w-full text-xs text-left min-w-[700px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-mono text-[11px]">
               <tr>
                 <th className="py-2.5 px-3">Ticket ID</th>
                 <th className="py-2.5 px-3">Date / Time</th>
                 <th className="py-2.5 px-3">Facility</th>
-                <th className="py-2.5 px-3">Waste Stream</th>
+                <th className="py-2.5 px-3">Stream & Class</th>
                 <th className="py-2.5 px-3">Weight (kg)</th>
                 <th className="py-2.5 px-3">Collection Partner</th>
                 <th className="py-2.5 px-3">Disposition</th>
@@ -192,7 +282,10 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
                   <td className="py-2.5 px-3 font-mono font-medium text-slate-700">{m.id}</td>
                   <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">{m.date}</td>
                   <td className="py-2.5 px-3 font-semibold text-slate-900">{m.facility}</td>
-                  <td className="py-2.5 px-3 text-slate-700">{m.stream}</td>
+                  <td className="py-2.5 px-3 text-slate-700">
+                    <div>{m.stream}</div>
+                    <span className="text-[10px] text-slate-400 font-mono">{m.classification}</span>
+                  </td>
                   <td className="py-2.5 px-3 font-mono font-bold text-slate-900 tabular-nums">
                     {m.weightKg.toLocaleString()} kg
                   </td>
@@ -231,7 +324,7 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
               <div className="p-8 text-center space-y-2">
                 <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
                 <h4 className="text-sm font-bold text-slate-900">Weigh-In Ticket Recorded</h4>
-                <p className="text-xs text-slate-500">Added to campus solid waste tracking ledger.</p>
+                <p className="text-xs text-slate-500">Live diversion metrics and ledger updated.</p>
               </div>
             ) : (
               <form onSubmit={handleSaveWeighIn} className="p-5 space-y-3.5 text-xs">
@@ -253,7 +346,7 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Waste Stream</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Waste Stream & Classification</label>
                   <select
                     value={weighInStream}
                     onChange={(e) => setWeighInStream(e.target.value)}
@@ -261,7 +354,7 @@ export const WasteManagementView: React.FC<WasteManagementViewProps> = ({
                   >
                     {wasteCategories.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name}
+                        {c.name} ({c.isDiverted ? 'Diverted' : 'Landfill'})
                       </option>
                     ))}
                   </select>

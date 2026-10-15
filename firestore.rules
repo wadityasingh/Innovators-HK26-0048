@@ -78,7 +78,7 @@ service cloud.firestore {
         (
           request.auth.uid == userId &&
           incoming().role == existing().role &&
-          incoming().departmentId == existing().departmentId
+          incoming().get('departmentId', '') == existing().get('departmentId', '')
         )
       );
       allow delete: if isAdmin();

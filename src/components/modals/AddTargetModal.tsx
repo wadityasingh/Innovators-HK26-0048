@@ -25,16 +25,22 @@ export const AddTargetModal: React.FC<AddTargetModalProps> = ({ isOpen, onClose,
     e.preventDefault();
     if (!title.trim()) return;
 
+    const cur = parseFloat(currentValue) || 0;
+    const tgt = parseFloat(targetValue) || 1;
+    const progressPct = tgt > 0 ? (cur / tgt) * 100 : 0;
+    const status: SustainabilityTarget['status'] =
+      progressPct >= 70 ? 'on_track' : progressPct >= 35 ? 'needs_attention' : 'off_track';
+
     const newTarget: SustainabilityTarget = {
       id: `tar-${Date.now()}`,
       title,
       category,
-      currentValue: parseFloat(currentValue) || 10,
-      targetValue: parseFloat(targetValue) || 25,
+      currentValue: cur,
+      targetValue: tgt,
       unit,
       baselineYear: 2022,
       targetYear: parseInt(targetYear, 10) || 2028,
-      status: 'on_track',
+      status,
       responsibleLead,
       notes: notes || 'Campus-wide efficiency capital improvement plan.',
     };

@@ -7,23 +7,41 @@ import {
   ChevronRight,
   Filter,
   AlertTriangle,
+  RefreshCw,
+  Info,
+  CheckCircle2,
+  FileText,
+  Building,
 } from 'lucide-react';
-import { Recommendation } from '../../types';
+import { BuildingData, Recommendation, ResourceReading } from '../../types';
 import { DemoNotice } from '../common/DemoNotice';
+import {
+  AUDIT_CONSTANTS,
+  generateRulesBasedRecommendations,
+} from '../../utils/recommendationEngine';
 
 interface RecommendationsViewProps {
   recommendations: Recommendation[];
+  buildings?: BuildingData[];
+  readings?: ResourceReading[];
   onSelectRecommendation: (rec: Recommendation) => void;
+  onUpdateRecommendations?: (recs: Recommendation[]) => void;
   onResetData: () => void;
 }
 
 export const RecommendationsView: React.FC<RecommendationsViewProps> = ({
   recommendations,
+  buildings = [],
+  readings = [],
   onSelectRecommendation,
+  onUpdateRecommendations,
   onResetData,
 }) => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationNote, setGenerationNote] = useState<string | null>(null);
+  const [showMethodology, setShowMethodology] = useState(false);
 
   const filtered = recommendations.filter((r) => {
     const matchesCat = categoryFilter === 'all' || r.category === categoryFilter;
@@ -39,13 +57,37 @@ export const RecommendationsView: React.FC<RecommendationsViewProps> = ({
     .filter((r) => r.reviewStatus !== 'Dismissed')
     .reduce((sum, r) => sum + r.estimatedCarbonReductionKg, 0);
 
+  const handleRunAiAudit = () => {
+    setIsGenerating(true);
+    setGenerationNote(null);
+
+    // Simulate analysis run across active departmental logs
+    setTimeout(() => {
+      const generated = generateRulesBasedRecommendations(buildings, readings);
+      if (generated.length > 0 && onUpdateRecommendations) {
+        onUpdateRecommendations(generated);
+        setGenerationNote(
+          `Analyzed ${buildings.length} campus facilities and ${buildings.reduce(
+            (acc, b) => acc + b.departments.length,
+            0
+          )} departments. Generated ${generated.length} proposals using rules-based baseline model.`
+        );
+      } else {
+        setGenerationNote(
+          'Campus consumption audit completed. Existing initiatives are aligned with current department logs.'
+        );
+      }
+      setIsGenerating(false);
+    }, 800);
+  };
+
   return (
     <div className="space-y-6">
       <DemoNotice onResetData={onResetData} />
 
       {/* Rationale & Integrity Banner */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="max-w-2xl">
             <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold mb-1">
               <Sparkles className="w-4 h-4" />
@@ -55,28 +97,85 @@ export const RecommendationsView: React.FC<RecommendationsViewProps> = ({
               Campus Conservation Opportunities & Estimated Impacts
             </h2>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              Preliminary initiatives identified from department utility consumption patterns. Savings are unverified model estimates and require verification before project approval.
+              Initiatives identified from department utility logs. Savings are unverified model estimates derived from standard institutional tariffs ($0.142/kWh electricity, $3.85/kL water) and require engineering review before capital commitment.
             </p>
           </div>
 
-          <div className="flex items-center gap-4 bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 shrink-0">
-            <div>
-              <div className="text-[11px] text-emerald-800 font-medium">Estimated Annual Cost Savings</div>
-              <div className="text-lg font-bold font-mono text-emerald-950 tabular-nums">
-                ${totalEstimatedSavings.toLocaleString()} / yr
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-4 bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 shrink-0">
+              <div>
+                <div className="text-[11px] text-emerald-800 font-medium">Estimated Annual Cost Savings</div>
+                <div className="text-lg font-bold font-mono text-emerald-950 tabular-nums">
+                  ${totalEstimatedSavings.toLocaleString()} / yr
+                </div>
+                <div className="text-[10px] text-slate-500 italic">Unverified projection</div>
               </div>
-              <div className="text-[10px] text-slate-500 italic">Unverified projection</div>
-            </div>
-            <div className="h-8 w-px bg-emerald-200" />
-            <div>
-              <div className="text-[11px] text-emerald-800 font-medium">Estimated Carbon Reduction</div>
-              <div className="text-lg font-bold font-mono text-emerald-950 tabular-nums">
-                {(totalEstimatedCarbon / 1000).toFixed(1)} MT CO₂e
+              <div className="h-8 w-px bg-emerald-200" />
+              <div>
+                <div className="text-[11px] text-emerald-800 font-medium">Estimated Carbon Reduction</div>
+                <div className="text-lg font-bold font-mono text-emerald-950 tabular-nums">
+                  {(totalEstimatedCarbon / 1000).toFixed(1)} MT CO₂e
+                </div>
+                <div className="text-[10px] text-slate-500 italic">Calculated model</div>
               </div>
-              <div className="text-[10px] text-slate-500 italic">Calculated model</div>
             </div>
+
+            <button
+              onClick={handleRunAiAudit}
+              disabled={isGenerating}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-semibold shadow-xs disabled:opacity-60 transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
+              <span>{isGenerating ? 'Analyzing Logs...' : 'Run Audit Analysis'}</span>
+            </button>
           </div>
         </div>
+
+        {generationNote && (
+          <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span>{generationNote}</span>
+          </div>
+        )}
+
+        {/* Methodology Toggle */}
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+          <button
+            onClick={() => setShowMethodology(!showMethodology)}
+            className="text-emerald-700 hover:text-emerald-900 font-medium flex items-center gap-1"
+          >
+            <Info className="w-3.5 h-3.5" />
+            <span>{showMethodology ? 'Hide Calculation Methodology' : 'View Calculation Methodology & Constants'}</span>
+          </button>
+          <span className="text-[11px] text-slate-400 font-mono">Model: Rules-Based Baseline / Gemini Ready</span>
+        </div>
+
+        {showMethodology && (
+          <div className="mt-3 p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 space-y-2">
+            <div className="font-semibold text-slate-900">Standard Campus Tariffs & Emissions Factors:</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px] font-mono">
+              <div className="p-2 bg-white rounded border border-slate-200">
+                <span className="text-slate-500 block">Electricity Tariff</span>
+                <span className="font-bold text-slate-800">${AUDIT_CONSTANTS.ELECTRICITY_TARIFF_USD_PER_KWH} / kWh</span>
+              </div>
+              <div className="p-2 bg-white rounded border border-slate-200">
+                <span className="text-slate-500 block">Potable Water Tariff</span>
+                <span className="font-bold text-slate-800">${AUDIT_CONSTANTS.WATER_TARIFF_USD_PER_KL} / kL</span>
+              </div>
+              <div className="p-2 bg-white rounded border border-slate-200">
+                <span className="text-slate-500 block">Paper Supply Cost</span>
+                <span className="font-bold text-slate-800">${AUDIT_CONSTANTS.PAPER_COST_USD_PER_SHEET} / sheet</span>
+              </div>
+              <div className="p-2 bg-white rounded border border-slate-200">
+                <span className="text-slate-500 block">Grid Emissions Coeff</span>
+                <span className="font-bold text-slate-800">{AUDIT_CONSTANTS.GRID_EMISSIONS_FACTOR_KG_CO2_PER_KWH} kg CO₂/kWh</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 italic pt-1">
+              Note: Calculations avoid hallucinated savings. All ROI figures assume steady-state equipment operational schedules and require on-site walkthrough verification.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Filter Bar */}

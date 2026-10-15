@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   TabType,
   TimeRange,
@@ -33,6 +33,7 @@ import {
   saveStoredReadings,
   clearStoredReadings,
 } from './utils/readingUtils';
+import { deriveOperationalAlerts } from './utils/alertUtils';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import {
   fetchReadings,
@@ -254,6 +255,34 @@ function AppWorkspace() {
   };
 
   const handleUpdateReading = async (updated: ResourceReading) => {
+    // Generate traceable audit record
+    const latestCorrection = updated.correctionHistory[0];
+    const auditRecord: AuditRecord = {
+      id: `aud-${Date.now()}`,
+      auditNumber: `REV-${Math.floor(Math.random() * 800 + 100)}`,
+      title: latestCorrection
+        ? `Reading Corrected: ${updated.departmentName}`
+        : `Reading Review Status: ${updated.status} (${updated.departmentName})`,
+      auditorName: activeUser.name,
+      auditDate: new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      building: updated.buildingName,
+      department: updated.departmentName,
+      scope: `${updated.resourceType.toUpperCase()} Submeter Log Audit`,
+      internalRating: updated.status === 'Approved' ? 98 : updated.status === 'Flagged' ? 65 : 85,
+      status: 'Reviewed & Filed',
+      unresolvedItemsCount: updated.status === 'Flagged' ? 1 : 0,
+      notes: latestCorrection
+        ? `Adjusted from ${latestCorrection.previousValue} ${latestCorrection.previousUnit} to ${latestCorrection.correctedValue} ${latestCorrection.correctedUnit}. Reason: ${latestCorrection.reason}`
+        : updated.flagReason
+        ? `Reading flagged: ${updated.flagReason}`
+        : `Reading marked as ${updated.status} by ${activeUser.name}.`,
+      inspectionType: 'Utility Meter Log Check',
+    };
+
     if (appMode === 'real') {
       try {
         await updateReading(updated.id, updated);
@@ -265,6 +294,9 @@ function AppWorkspace() {
         if (updated.status === 'Approved') {
           syncApprovedReadingToBuildings(updated, true);
         }
+
+        await saveAudit(auditRecord);
+        setRealAudits((prev) => [auditRecord, ...prev]);
       } catch (err) {
         console.error('Failed to update reading in Firestore:', err);
       }
@@ -277,6 +309,7 @@ function AppWorkspace() {
       if (updated.status === 'Approved') {
         syncApprovedReadingToBuildings(updated, false);
       }
+      setDemoAudits((prev) => [auditRecord, ...prev]);
     }
   };
 
@@ -428,11 +461,26 @@ function AppWorkspace() {
   const currentWaste =
     appMode === 'real' && realWaste.length > 0 ? realWaste : demoWasteCategories;
   const currentAudits = appMode === 'real' ? realAudits : demoAudits;
+  const currentAlerts = useMemo(() => {
+    return deriveOperationalAlerts(currentBuildings, currentReadings, demoAlerts);
+  }, [currentBuildings, currentReadings, demoAlerts]);
 
-  const unreadAlertsCount = demoAlerts.filter((a) => !a.acknowledged).length;
+  const unreadAlertsCount = currentAlerts.filter((a) => !a.acknowledged).length;
   const activeRecommendationsCount = demoRecommendations.filter(
     (r) => r.reviewStatus === 'Under Review' || r.reviewStatus === 'Draft Proposal'
   ).length;
+
+  const handleUpdateWaste = (cats: WasteCategory[]) => {
+    if (appMode === 'real') {
+      setRealWaste(cats);
+    } else {
+      setDemoWasteCategories(cats);
+    }
+  };
+
+  const handleUpdateRecommendations = (recs: Recommendation[]) => {
+    setDemoRecommendations(recs);
+  };
 
   return (
     <div className="flex h-screen bg-[#f8faf9] text-slate-900 overflow-hidden font-sans">
@@ -457,7 +505,7 @@ function AppWorkspace() {
           onSelectUser={setDemoUser}
           selectedTimeRange={selectedTimeRange}
           onChangeTimeRange={setSelectedTimeRange}
-          alerts={demoAlerts}
+          alerts={currentAlerts}
           onAcknowledgeAlert={handleAcknowledgeAlert}
           onNavigateToTab={setActiveTab}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
@@ -471,7 +519,7 @@ function AppWorkspace() {
                 buildings={currentBuildings}
                 monthlyData={demoMonthlyData}
                 wasteCategories={currentWaste}
-                alerts={demoAlerts}
+                alerts={currentAlerts}
                 targets={currentTargets}
                 audits={currentAudits}
                 selectedTimeRange={selectedTimeRange}
@@ -498,6 +546,7 @@ function AppWorkspace() {
             {activeTab === 'waste' && (
               <WasteManagementView
                 wasteCategories={currentWaste}
+                onUpdateWasteCategories={handleUpdateWaste}
                 onResetData={handleResetData}
               />
             )}
@@ -505,14 +554,17 @@ function AppWorkspace() {
             {activeTab === 'recommendations' && (
               <RecommendationsView
                 recommendations={demoRecommendations}
+                buildings={currentBuildings}
+                readings={currentReadings}
                 onSelectRecommendation={(rec) => setSelectedRecommendation(rec)}
+                onUpdateRecommendations={handleUpdateRecommendations}
                 onResetData={handleResetData}
               />
             )}
 
             {activeTab === 'alerts' && (
               <AlertsView
-                alerts={demoAlerts}
+                alerts={currentAlerts}
                 onAcknowledgeAlert={handleAcknowledgeAlert}
                 onResolveAlert={handleResolveAlert}
                 onAddAlert={handleAddAlert}

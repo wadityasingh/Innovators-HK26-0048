@@ -46,6 +46,26 @@ export interface UserDocData {
   updatedAt: string;
 }
 
+// Helper to recursively remove undefined values from Firestore payloads
+export function cleanFirestoreData<T extends Record<string, any>>(obj: T): T {
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      if (
+        value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        !(value instanceof Date)
+      ) {
+        result[key] = cleanFirestoreData(value);
+      } else {
+        result[key] = value;
+      }
+    }
+  }
+  return result as T;
+}
+
 // -------------------------------------------------------------
 // USER PROFILES & RBAC
 // -------------------------------------------------------------
@@ -66,15 +86,32 @@ export async function getFirestoreUser(uid: string): Promise<UserDocData | null>
 export async function createOrUpdateUserDoc(userData: UserDocData): Promise<void> {
   const path = `users/${userData.uid}`;
   try {
-    await setDoc(doc(db, 'users', userData.uid), userData, { merge: true });
+    const safeData: UserDocData = {
+      uid: userData.uid,
+      email: userData.email || '',
+      displayName: userData.displayName || '',
+      role: userData.role,
+      departmentId: userData.departmentId ?? '',
+      departmentName: userData.departmentName ?? '',
+      buildingId: userData.buildingId ?? '',
+      buildingName: userData.buildingName ?? '',
+      createdAt: userData.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const cleaned = cleanFirestoreData(safeData);
+    await setDoc(doc(db, 'users', userData.uid), cleaned, { merge: true });
 
     // If Admin, ensure presence in admins collection
     if (userData.role === 'Admin') {
-      await setDoc(
-        doc(db, 'admins', userData.uid),
-        { uid: userData.uid, email: userData.email, assignedAt: new Date().toISOString() },
-        { merge: true }
-      );
+      try {
+        await setDoc(
+          doc(db, 'admins', userData.uid),
+          { uid: userData.uid, email: userData.email, assignedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      } catch (adminErr) {
+        console.warn('Could not update admins collection:', adminErr);
+      }
     } else {
       // Remove from admins if downgraded
       try {
@@ -118,7 +155,7 @@ export async function fetchCampusSettings(): Promise<CampusSettingsData | null> 
 export async function saveCampusSettings(settings: CampusSettingsData): Promise<void> {
   const path = 'settings/global';
   try {
-    await setDoc(doc(db, 'settings', 'global'), settings);
+    await setDoc(doc(db, 'settings', 'global'), cleanFirestoreData(settings));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -141,7 +178,7 @@ export async function fetchBuildings(): Promise<BuildingData[]> {
 export async function saveBuilding(building: BuildingData): Promise<void> {
   const path = `buildings/${building.id}`;
   try {
-    await setDoc(doc(db, 'buildings', building.id), building, { merge: true });
+    await setDoc(doc(db, 'buildings', building.id), cleanFirestoreData(building), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -190,7 +227,7 @@ export async function createReading(
       createdAt: reading.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    await setDoc(doc(db, 'readings', readingId), record);
+    await setDoc(doc(db, 'readings', readingId), cleanFirestoreData(record));
     return readingId;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
@@ -207,7 +244,7 @@ export async function updateReading(
       ...updates,
       updatedAt: new Date().toISOString(),
     };
-    await updateDoc(doc(db, 'readings', readingId), payload);
+    await updateDoc(doc(db, 'readings', readingId), cleanFirestoreData(payload));
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
@@ -239,7 +276,7 @@ export async function fetchTargets(): Promise<SustainabilityTarget[]> {
 export async function saveTarget(target: SustainabilityTarget): Promise<void> {
   const path = `targets/${target.id}`;
   try {
-    await setDoc(doc(db, 'targets', target.id), target, { merge: true });
+    await setDoc(doc(db, 'targets', target.id), cleanFirestoreData(target), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -262,7 +299,7 @@ export async function fetchWasteCategories(): Promise<WasteCategory[]> {
 export async function saveWasteCategory(category: WasteCategory): Promise<void> {
   const path = `waste/${category.id}`;
   try {
-    await setDoc(doc(db, 'waste', category.id), category, { merge: true });
+    await setDoc(doc(db, 'waste', category.id), cleanFirestoreData(category), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -285,7 +322,7 @@ export async function fetchAudits(): Promise<AuditRecord[]> {
 export async function saveAudit(audit: AuditRecord): Promise<void> {
   const path = `audits/${audit.id}`;
   try {
-    await setDoc(doc(db, 'audits', audit.id), audit, { merge: true });
+    await setDoc(doc(db, 'audits', audit.id), cleanFirestoreData(audit), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
