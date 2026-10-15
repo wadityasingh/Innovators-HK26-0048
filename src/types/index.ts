@@ -16,6 +16,8 @@ export type ResourceType = 'electricity' | 'water' | 'paper' | 'waste';
 
 export type SeverityLevel = 'critical' | 'warning' | 'info';
 
+export type SystemRole = 'Admin' | 'Department Staff' | 'Sustainability Coordinator';
+
 export type UserRole =
   | 'Campus Sustainability Manager'
   | 'Facilities Energy Coordinator'
@@ -27,8 +29,22 @@ export interface UserProfile {
   name: string;
   email: string;
   role: UserRole;
+  systemRole?: SystemRole;
   department: string;
+  departmentId?: string;
   avatarInitials: string;
+}
+
+export interface AuthenticatedUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL?: string | null;
+  role: SystemRole;
+  departmentId?: string;
+  departmentName?: string;
+  buildingId?: string;
+  buildingName?: string;
 }
 
 export interface DepartmentLocation {
@@ -150,4 +166,60 @@ export interface CampusUser {
   assignedScope: string;
   lastActive: string;
   status: 'Active' | 'Invited';
+}
+
+export type ReadingStatus = 'Draft' | 'Pending Review' | 'Approved' | 'Flagged';
+
+export type EntryDataSource = 'Manual Entry' | 'Imported' | 'Utility Bill Log' | 'Submeter Log';
+
+export type CompatibleUnit =
+  | 'kWh'
+  | 'MWh'
+  | 'Litres'
+  | 'kL'
+  | 'm³'
+  | 'Sheets'
+  | 'Reams'
+  | 'Boxes';
+
+export interface ReadingCorrectionRecord {
+  id: string;
+  timestamp: string;
+  reviewedBy: string;
+  reviewerRole: string;
+  previousValue: number;
+  previousUnit: CompatibleUnit;
+  correctedValue: number;
+  correctedUnit: CompatibleUnit;
+  reason: string;
+}
+
+export interface ResourceReading {
+  id: string;
+  date: string; // "YYYY-MM-DD"
+  reportingPeriod: string; // e.g. "Oct 2026", "Sep 2026"
+  buildingId: string;
+  buildingName: string;
+  buildingCode: string;
+  departmentId: string;
+  departmentName: string;
+  departmentCode: string;
+  resourceType: 'electricity' | 'water' | 'paper';
+  originalValue: number;
+  originalUnit: CompatibleUnit;
+  normalizedValue: number;
+  normalizedUnit: 'kWh' | 'Litres' | 'Sheets';
+  status: ReadingStatus;
+  dataSource: EntryDataSource;
+  enteredBy: string;
+  enteredByUid?: string;
+  enteredByRole: string;
+  createdAt: string;
+  updatedAt: string;
+  notes?: string;
+  isFlagged?: boolean;
+  flagReason?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  correctionHistory: ReadingCorrectionRecord[];
 }

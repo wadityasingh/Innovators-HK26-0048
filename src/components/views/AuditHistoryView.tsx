@@ -9,23 +9,59 @@ import {
   FileText,
   Filter,
 } from 'lucide-react';
-import { AuditRecord } from '../../types';
+import { AuditRecord, UserProfile } from '../../types';
 import { DemoNotice } from '../common/DemoNotice';
+import { ShieldAlert, Lock } from 'lucide-react';
 
 interface AuditHistoryViewProps {
   audits: AuditRecord[];
+  currentUser?: UserProfile;
+  appMode?: 'real' | 'demo';
   onOpenLogAudit: () => void;
   onResetData: () => void;
 }
 
 export const AuditHistoryView: React.FC<AuditHistoryViewProps> = ({
   audits,
+  currentUser,
+  appMode,
   onOpenLogAudit,
   onResetData,
 }) => {
+  const isDeptStaff = appMode === 'real' && currentUser?.systemRole === 'Department Staff';
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAudit, setSelectedAudit] = useState<AuditRecord | null>(null);
+
+  if (isDeptStaff) {
+    return (
+      <div className="space-y-6">
+        <div className="p-8 bg-white border border-slate-200 rounded-2xl shadow-xs text-center max-w-xl mx-auto my-12">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900 mb-1">
+            Audit Records Restricted
+          </h2>
+          <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+            Campus walkthrough inspection logs and confidential audit compliance ratings are restricted to 
+            <span className="font-semibold text-slate-900"> Sustainability Coordinators</span> and 
+            <span className="font-semibold text-slate-900"> Campus Administrators</span> under institutional governance.
+          </p>
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-left text-xs text-slate-600 space-y-1">
+            <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-700" />
+              <span>Department Staff Access Scope</span>
+            </div>
+            <p className="text-[11px]">
+              You can log, review, and adjust resource meter readings for your assigned department in 
+              <span className="font-medium text-emerald-800"> Resource Monitoring</span>.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filteredAudits = audits.filter((a) => {
     const matchesStatus = statusFilter === 'all' || a.status === statusFilter;

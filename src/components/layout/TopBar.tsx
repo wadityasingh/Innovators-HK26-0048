@@ -9,8 +9,13 @@ import {
   Calendar,
   AlertTriangle,
   Info,
+  LogIn,
+  LogOut,
+  Database,
+  Sparkles,
 } from 'lucide-react';
 import { TabType, TimeRange, UserProfile, PriorityAlert } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 
 interface TopBarProps {
   activeTab: TabType;
@@ -23,6 +28,7 @@ interface TopBarProps {
   alerts: PriorityAlert[];
   onAcknowledgeAlert: (id: string) => void;
   onNavigateToTab: (tab: TabType) => void;
+  onOpenAuthModal: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -36,7 +42,17 @@ export const TopBar: React.FC<TopBarProps> = ({
   alerts,
   onAcknowledgeAlert,
   onNavigateToTab,
+  onOpenAuthModal,
 }) => {
+  const {
+    firebaseUser,
+    authUser,
+    appMode,
+    setAppMode,
+    logout,
+    firestoreConnected,
+  } = useAuth();
+
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
 
@@ -138,8 +154,46 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {/* Center: Campus Label & Date Filter */}
+        {/* Center: Campus Label, Mode Badge & Date Filter */}
         <div className="hidden md:flex items-center gap-2">
+          {/* Mode Badge & Switcher */}
+          <div className="flex items-center">
+            {appMode === 'real' ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-900 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <Database className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span>Live Firestore</span>
+                <button
+                  onClick={() => setAppMode('demo')}
+                  className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-white border border-emerald-300 rounded text-emerald-800 hover:bg-emerald-100 font-medium transition-colors"
+                  title="Switch to synthetic demo dataset"
+                >
+                  View Demo
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 rounded-lg text-xs font-semibold text-amber-900 shadow-2xs">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>Synthetic Demo</span>
+                {firebaseUser ? (
+                  <button
+                    onClick={() => setAppMode('real')}
+                    className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-emerald-700 text-white rounded font-medium hover:bg-emerald-800 transition-colors"
+                  >
+                    Return to Real Data
+                  </button>
+                ) : (
+                  <button
+                    onClick={onOpenAuthModal}
+                    className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-slate-800 text-white rounded font-medium hover:bg-slate-900 transition-colors"
+                  >
+                    Log In
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Fixed Single Campus Scope */}
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700">
             <Building2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
@@ -242,71 +296,161 @@ export const TopBar: React.FC<TopBarProps> = ({
 
           <div className="h-5 w-px bg-slate-200 hidden sm:block" />
 
-          {/* User Profile & Demo Role Switcher */}
-          <div className="relative" ref={roleMenuRef}>
-            <button
-              onClick={() => setShowRoleMenu(!showRoleMenu)}
-              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-left"
-              aria-label="User profile and role menu"
-            >
-              <div className="w-8 h-8 rounded-full bg-emerald-800 text-emerald-100 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                {currentUser.avatarInitials}
-              </div>
-              <div className="hidden sm:block">
-                <div className="text-xs font-semibold text-slate-900 leading-tight">
-                  {currentUser.name}
+          {/* User Profile & Auth / Demo Switcher */}
+          {firebaseUser && authUser ? (
+            <div className="relative" ref={roleMenuRef}>
+              <button
+                onClick={() => setShowRoleMenu(!showRoleMenu)}
+                className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-left"
+                aria-label="User profile menu"
+              >
+                <div className="w-8 h-8 rounded-full bg-emerald-900 text-emerald-100 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                  {currentUser.avatarInitials}
                 </div>
-                <div className="text-[10px] text-emerald-700 font-medium flex items-center gap-1">
-                  <Shield className="w-2.5 h-2.5" />
-                  <span>{currentUser.role}</span>
+                <div className="hidden sm:block">
+                  <div className="text-xs font-semibold text-slate-900 leading-tight flex items-center gap-1">
+                    <span>{authUser.displayName || authUser.email}</span>
+                  </div>
+                  <div className="text-[10px] text-emerald-700 font-medium flex items-center gap-1">
+                    <Shield className="w-2.5 h-2.5" />
+                    <span>{authUser.role}</span>
+                  </div>
                 </div>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
-            </button>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+              </button>
 
-            {/* Role Switcher Menu */}
-            {showRoleMenu && (
-              <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-2 text-xs">
-                <div className="px-2 py-1.5 border-b border-slate-100 mb-1">
-                  <div className="text-slate-500 text-[10px] uppercase font-semibold">
-                    Demo Role Perspective
-                  </div>
-                  <div className="text-slate-600 text-[11px]">
-                    Switch perspective to review portal views by user role
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  {availableRoles.map((roleUser) => (
-                    <button
-                      key={roleUser.id}
-                      onClick={() => {
-                        onSelectUser(roleUser);
-                        setShowRoleMenu(false);
-                      }}
-                      className={`w-full flex items-start gap-2.5 p-2 rounded-lg text-left transition-colors ${
-                        currentUser.id === roleUser.id
-                          ? 'bg-emerald-50 text-emerald-950 font-semibold'
-                          : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-full bg-emerald-800 text-white flex items-center justify-center font-semibold text-xs shrink-0">
-                        {roleUser.avatarInitials}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs truncate">{roleUser.name}</div>
-                        <div className="text-[10px] text-slate-500 font-normal truncate">
-                          {roleUser.role}
-                        </div>
-                      </div>
-                      {currentUser.id === roleUser.id && (
-                        <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-1" />
+              {/* Authenticated User Menu */}
+              {showRoleMenu && (
+                <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-3 text-xs">
+                  <div className="pb-2.5 border-b border-slate-100 mb-2">
+                    <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
+                      Authenticated Profile
+                    </div>
+                    <div className="font-semibold text-slate-900 truncate mt-0.5">
+                      {authUser.displayName || authUser.email}
+                    </div>
+                    <div className="text-[11px] text-slate-500 truncate">{authUser.email}</div>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[10px]">
+                        {authUser.role}
+                      </span>
+                      {authUser.departmentName && (
+                        <span className="text-[10px] text-slate-500 truncate">
+                          · {authUser.departmentName}
+                        </span>
                       )}
-                    </button>
-                  ))}
+                    </div>
+                  </div>
+
+                  {/* Mode Toggle inside menu */}
+                  <div className="py-2 border-b border-slate-100 mb-2">
+                    <div className="text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                      Data Scope
+                    </div>
+                    <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg">
+                      <div className="text-xs">
+                        <span className="font-semibold text-slate-800 block">
+                          {appMode === 'real' ? 'Live Firestore Data' : 'Synthetic Demo Dataset'}
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          {appMode === 'real'
+                            ? 'Operations persist to cloud database'
+                            : 'Using browser local demo state'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setAppMode(appMode === 'real' ? 'demo' : 'real')}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
+                          appMode === 'real'
+                            ? 'bg-slate-200 text-slate-800 hover:bg-slate-300'
+                            : 'bg-emerald-800 text-white hover:bg-emerald-900'
+                        }`}
+                      >
+                        {appMode === 'real' ? 'Use Demo' : 'Use Real'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sign Out Button */}
+                  <button
+                    onClick={async () => {
+                      setShowRoleMenu(false);
+                      await logout();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
                 </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onOpenAuthModal}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Log In</span>
+              </button>
+
+              {/* Demo Role Switcher button */}
+              <div className="relative" ref={roleMenuRef}>
+                <button
+                  onClick={() => setShowRoleMenu(!showRoleMenu)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors"
+                  title="Simulate different user perspectives in Demo mode"
+                >
+                  <Shield className="w-3 h-3 text-slate-500" />
+                  <span className="hidden sm:inline">Role View: {currentUser.role.split(' ')[0]}</span>
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                </button>
+
+                {showRoleMenu && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-2 text-xs">
+                    <div className="px-2 py-1.5 border-b border-slate-100 mb-1">
+                      <div className="text-slate-500 text-[10px] uppercase font-bold">
+                        Demo Simulation Perspectives
+                      </div>
+                      <div className="text-slate-600 text-[11px]">
+                        Preview how permissions and filters change by role
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      {availableRoles.map((roleUser) => (
+                        <button
+                          key={roleUser.id}
+                          onClick={() => {
+                            onSelectUser(roleUser);
+                            setShowRoleMenu(false);
+                          }}
+                          className={`w-full flex items-start gap-2.5 p-2 rounded-lg text-left transition-colors ${
+                            currentUser.id === roleUser.id
+                              ? 'bg-emerald-50 text-emerald-950 font-semibold'
+                              : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className="w-7 h-7 rounded-full bg-emerald-800 text-white flex items-center justify-center font-semibold text-xs shrink-0">
+                            {roleUser.avatarInitials}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs truncate">{roleUser.name}</div>
+                            <div className="text-[10px] text-slate-500 font-normal truncate">
+                              {roleUser.role}
+                            </div>
+                          </div>
+                          {currentUser.id === roleUser.id && (
+                            <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-1" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </header>

@@ -1,0 +1,210 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with role-based access control and department assignment",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "role": {
+          "type": "string",
+          "enum": ["Admin", "Department Staff", "Sustainability Coordinator"]
+        },
+        "departmentId": { "type": "string", "maxLength": 128 },
+        "departmentName": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "CampusSetting": {
+      "title": "Campus Operational Settings",
+      "description": "Campus physical baselines and utility tariffs",
+      "type": "object",
+      "properties": {
+        "campusName": { "type": "string", "maxLength": 128 },
+        "conditionedSqFt": { "type": "string", "maxLength": 32 },
+        "ftePopulation": { "type": "string", "maxLength": 32 },
+        "electricityTariff": { "type": "string", "maxLength": 32 },
+        "waterTariff": { "type": "string", "maxLength": 32 },
+        "landfillTariff": { "type": "string", "maxLength": 32 },
+        "gridCarbonFactor": { "type": "string", "maxLength": 32 },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["campusName", "updatedAt"]
+    },
+    "Building": {
+      "title": "Campus Building",
+      "description": "Building entity under campus with department locations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 32 },
+        "category": { "type": "string", "maxLength": 64 },
+        "grossAreaSqFt": { "type": "number" },
+        "occupancy": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "code"]
+    },
+    "ResourceReading": {
+      "title": "Resource Reading Entry",
+      "description": "Logged meter reading for electricity, water, or paper with normalization and review state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "reportingPeriod": { "type": "string", "maxLength": 64 },
+        "buildingId": { "type": "string", "maxLength": 128 },
+        "buildingName": { "type": "string", "maxLength": 128 },
+        "buildingCode": { "type": "string", "maxLength": 32 },
+        "departmentId": { "type": "string", "maxLength": 128 },
+        "departmentName": { "type": "string", "maxLength": 128 },
+        "departmentCode": { "type": "string", "maxLength": 32 },
+        "resourceType": {
+          "type": "string",
+          "enum": ["electricity", "water", "paper"]
+        },
+        "originalValue": { "type": "number" },
+        "originalUnit": { "type": "string", "maxLength": 32 },
+        "normalizedValue": { "type": "number" },
+        "normalizedUnit": {
+          "type": "string",
+          "enum": ["kWh", "Litres", "Sheets"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Draft", "Pending Review", "Approved", "Flagged"]
+        },
+        "dataSource": { "type": "string", "maxLength": 64 },
+        "enteredBy": { "type": "string", "maxLength": 128 },
+        "enteredByUid": { "type": "string", "maxLength": 128 },
+        "enteredByRole": { "type": "string", "maxLength": 64 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "isFlagged": { "type": "boolean" },
+        "flagReason": { "type": "string", "maxLength": 500 },
+        "reviewedBy": { "type": "string", "maxLength": 128 },
+        "reviewedAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": [
+        "date",
+        "reportingPeriod",
+        "buildingId",
+        "departmentId",
+        "resourceType",
+        "originalValue",
+        "originalUnit",
+        "normalizedValue",
+        "normalizedUnit",
+        "status",
+        "enteredByUid"
+      ]
+    },
+    "SustainabilityTarget": {
+      "title": "Sustainability Target",
+      "description": "Campus level target for carbon, electricity, water, paper, or waste",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 64 },
+        "currentValue": { "type": "number" },
+        "targetValue": { "type": "number" },
+        "unit": { "type": "string", "maxLength": 32 },
+        "baselineYear": { "type": "number" },
+        "targetYear": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["on_track", "needs_attention", "off_track"]
+        },
+        "responsibleLead": { "type": "string", "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["title", "category", "targetValue", "unit", "status"]
+    },
+    "WasteRecord": {
+      "title": "Waste Stream Record",
+      "description": "Diversion and weight breakdown per waste category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "color": { "type": "string", "maxLength": 32 },
+        "weightKg": { "type": "number" },
+        "percentage": { "type": "number" },
+        "isDiverted": { "type": "boolean" },
+        "collectionPoint": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "weightKg", "isDiverted"]
+    },
+    "AuditRecord": {
+      "title": "Campus Audit Record",
+      "description": "Internal inspection walkthrough log and utility checking record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "auditNumber": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 128 },
+        "auditorName": { "type": "string", "maxLength": 128 },
+        "auditDate": { "type": "string", "maxLength": 64 },
+        "building": { "type": "string", "maxLength": 128 },
+        "department": { "type": "string", "maxLength": 128 },
+        "scope": { "type": "string", "maxLength": 256 },
+        "internalRating": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["Internal Draft", "Pending Review", "Reviewed & Filed"]
+        },
+        "unresolvedItemsCount": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "inspectionType": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string" },
+        "createdBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["auditNumber", "title", "auditorName", "building", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile with role authorization and assigned department"
+    },
+    "/admins/{userId}": {
+      "schema": "User",
+      "description": "Document presence signifies Admin privileges"
+    },
+    "/settings/{settingId}": {
+      "schema": "CampusSetting",
+      "description": "Global campus parameters, tariffs, and square footage"
+    },
+    "/buildings/{buildingId}": {
+      "schema": "Building",
+      "description": "Campus buildings hierarchy catalog"
+    },
+    "/readings/{readingId}": {
+      "schema": "ResourceReading",
+      "description": "Normalized resource meter readings with review states"
+    },
+    "/targets/{targetId}": {
+      "schema": "SustainabilityTarget",
+      "description": "Institutional targets tracked against baseline years"
+    },
+    "/waste/{wasteId}": {
+      "schema": "WasteRecord",
+      "description": "Campus solid waste streams and diversion rates"
+    },
+    "/audits/{auditId}": {
+      "schema": "AuditRecord",
+      "description": "Campus audit logbook and compliance inspection notes"
+    }
+  }
+}

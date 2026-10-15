@@ -1,0 +1,165 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'sadityasingh6275520@gmail.com'
+      );
+    }
+
+    function hasUserDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSustainabilityCoordinator() {
+      return isAdmin() || (hasUserDoc() && getUserData().role == 'Sustainability Coordinator');
+    }
+
+    function isDepartmentStaff(deptId) {
+      return isAdmin() || (hasUserDoc() && getUserData().role == 'Department Staff' && getUserData().departmentId == deptId);
+    }
+
+    // Validation helper for Resource Readings
+    function isValidReading(data) {
+      return data.keys().hasAll([
+        'date', 'reportingPeriod', 'buildingId', 'departmentId',
+        'resourceType', 'originalValue', 'originalUnit',
+        'normalizedValue', 'normalizedUnit', 'status', 'enteredByUid'
+      ]) &&
+      data.date is string && data.date.size() <= 32 &&
+      data.reportingPeriod is string && data.reportingPeriod.size() <= 64 &&
+      data.buildingId is string && data.buildingId.size() <= 128 &&
+      data.departmentId is string && data.departmentId.size() <= 128 &&
+      data.resourceType in ['electricity', 'water', 'paper'] &&
+      data.originalValue is number && data.originalValue >= 0 &&
+      data.originalUnit is string && data.originalUnit.size() <= 32 &&
+      data.normalizedValue is number && data.normalizedValue >= 0 &&
+      data.normalizedUnit in ['kWh', 'Litres', 'Sheets'] &&
+      data.status in ['Draft', 'Pending Review', 'Approved', 'Flagged'] &&
+      data.enteredByUid is string && data.enteredByUid.size() <= 128;
+    }
+
+    // 2. Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == userId && (
+        incoming().role in ['Department Staff', 'Sustainability Coordinator'] || isAdmin()
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          request.auth.uid == userId &&
+          incoming().role == existing().role &&
+          incoming().departmentId == existing().departmentId
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 3. Admins Collection
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 4. Campus Settings Collection
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 5. Buildings Hierarchy Collection
+    match /buildings/{buildingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+
+      match /departments/{departmentId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+    }
+
+    // 6. Resource Readings Collection
+    match /readings/{readingId} {
+      allow get: if isSignedIn() && (
+        isAdmin() ||
+        isSustainabilityCoordinator() ||
+        (hasUserDoc() && resource.data.departmentId == getUserData().departmentId)
+      );
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        isSustainabilityCoordinator() ||
+        (hasUserDoc() && resource.data.departmentId == getUserData().departmentId)
+      );
+      allow create: if isSignedIn() && isValidReading(incoming()) && incoming().enteredByUid == request.auth.uid && (
+        isAdmin() ||
+        isSustainabilityCoordinator() ||
+        (hasUserDoc() && incoming().departmentId == getUserData().departmentId && incoming().status in ['Draft', 'Pending Review'])
+      );
+      allow update: if isSignedIn() && isValidReading(incoming()) && (
+        isAdmin() ||
+        isSustainabilityCoordinator() ||
+        (
+          hasUserDoc() &&
+          resource.data.departmentId == getUserData().departmentId &&
+          resource.data.enteredByUid == request.auth.uid &&
+          resource.data.status in ['Draft', 'Flagged'] &&
+          incoming().status in ['Draft', 'Pending Review']
+        )
+      );
+      allow delete: if isAdmin() || (
+        isSignedIn() &&
+        hasUserDoc() &&
+        resource.data.departmentId == getUserData().departmentId &&
+        resource.data.enteredByUid == request.auth.uid &&
+        resource.data.status == 'Draft'
+      );
+    }
+
+    // 7. Sustainability Targets Collection
+    match /targets/{targetId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isSustainabilityCoordinator();
+    }
+
+    // 8. Waste Records Collection
+    match /waste/{wasteId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isSustainabilityCoordinator();
+    }
+
+    // 9. Audits Collection (protected from ordinary users)
+    match /audits/{auditId} {
+      allow read: if isAdmin() || isSustainabilityCoordinator();
+      allow write: if isAdmin();
+    }
+  }
+}
