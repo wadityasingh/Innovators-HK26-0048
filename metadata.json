@@ -1,0 +1,6 @@
+{
+  "name": "GreenCampus AI — Sustainable Campus Resource & Energy Audit Portal",
+  "description": "Enterprise campus sustainability management portal for real-time monitoring of electricity, water, paper, and waste management with audit history and predictive recommendations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
